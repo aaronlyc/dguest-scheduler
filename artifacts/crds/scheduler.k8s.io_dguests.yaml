@@ -63,7 +63,7 @@ spec:
                 description: 'Tolerance: indicates that it can be scheduled to foods
                   with tolerance'
                 items:
-                  description: The dguest this Toleration is attached to tolerates any
+                  description: The pod this Toleration is attached to tolerates any
                     taint that matches the triple <key,value,effect> using the matching
                     operator <operator>.
                   properties:
@@ -81,7 +81,7 @@ spec:
                     operator:
                       description: Operator represents a key's relationship to the
                         value. Valid operators are Exists and Equal. Defaults to Equal.
-                        Exists is equivalent to wildcard for value, so that a dguest
+                        Exists is equivalent to wildcard for value, so that a pod
                         can tolerate all taints of a particular category.
                       type: string
                     tolerationSeconds:
@@ -100,6 +100,9 @@ spec:
                       type: string
                   type: object
                 type: array
+              wantBill:
+                description: The Bill the dguest want to scheduler.
+                type: string
             type: object
           status:
             description: DguestStatus is the status for a Food resource
@@ -152,7 +155,6 @@ spec:
             type: object
         required:
         - spec
-        - status
         type: object
     served: true
     storage: true

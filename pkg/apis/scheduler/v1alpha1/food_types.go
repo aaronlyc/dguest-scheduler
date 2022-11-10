@@ -86,7 +86,7 @@ type Food struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   FoodSpec   `json:"spec"`
-	Status FoodStatus `json:"status"`
+	Status FoodStatus `json:"status,omitempty"`
 }
 
 // FoodSpec is the spec for a Food resource
@@ -112,5 +112,5 @@ type FoodList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	Items []Food `json:"items"`
+	Items []Food `json:"items,omitempty"`
 }

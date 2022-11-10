@@ -131,6 +131,11 @@ func (in *DguestSpec) DeepCopyInto(out *DguestSpec) {
 		*out = new(int64)
 		**out = **in
 	}
+	if in.WantBill != nil {
+		in, out := &in.WantBill, &out.WantBill
+		*out = new(string)
+		**out = **in
+	}
 	if in.Replicas != nil {
 		in, out := &in.Replicas, &out.Replicas
 		*out = new(int32)

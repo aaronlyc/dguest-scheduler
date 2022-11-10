@@ -111,7 +111,7 @@ type Dguest struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   DguestSpec   `json:"spec"`
-	Status DguestStatus `json:"status"`
+	Status DguestStatus `json:"status,omitempty"`
 }
 
 // DguestSpec is the spec for a Food resource
@@ -121,7 +121,7 @@ type DguestSpec struct {
 	// The timeout period before becoming active
 	ActiveDeadlineSeconds *int64 `json:"activeDeadlineSeconds,omitempty"`
 	// The Bill the dguest want to scheduler.
-	WantBill *string
+	WantBill *string `json:"wantBill,omitempty"`
 	// Number of replicas
 	Replicas *int32 `json:"replicas,omitempty"`
 	// Name of the scheduler
@@ -145,5 +145,5 @@ type DguestList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	Items []Dguest `json:"items"`
+	Items []Dguest `json:"items,omitempty"`
 }
