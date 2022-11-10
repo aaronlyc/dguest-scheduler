@@ -17,9 +17,9 @@ limitations under the License.
 package fake
 
 import (
+	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
 	"dguest-scheduler/pkg/scheduler/framework"
 	internalcache "dguest-scheduler/pkg/scheduler/internal/cache"
-	v1 "k8s.io/api/core/v1"
 )
 
 // Cache is used for testing

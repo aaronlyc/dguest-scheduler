@@ -1,4 +1,4 @@
-package config
+package v1
 
 import (
 	"math"
@@ -80,15 +80,15 @@ type SchedulerConfiguration struct {
 	// choose to be scheduled under a particular profile by setting its associated
 	// scheduler name. Dguests that don't specify any scheduler name are scheduled
 	// with the "default-scheduler" profile, if present here.
-	Profiles []KubeSchedulerProfile
+	Profiles []SchedulerProfile
 
 	// Extenders are the list of scheduler extenders, each holding the values of how to communicate
 	// with the extender. These extenders are shared by all scheduler profiles.
 	//Extenders []Extender
 }
 
-// KubeSchedulerProfile is a scheduling profile.
-type KubeSchedulerProfile struct {
+// SchedulerProfile is a scheduling profile.
+type SchedulerProfile struct {
 	// SchedulerName is the name of the scheduler associated to this profile.
 	// If SchedulerName matches with the dguest's "spec.schedulerName", then the dguest
 	// is scheduled with this profile.

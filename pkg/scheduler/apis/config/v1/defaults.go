@@ -17,7 +17,6 @@ limitations under the License.
 package v1
 
 import (
-	"dguest-scheduler/pkg/scheduler/apis/config"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -26,20 +25,20 @@ import (
 	"k8s.io/kubernetes/pkg/features"
 )
 
-var defaultResourceSpec = []config.ResourceSpec{
+var defaultResourceSpec = []ResourceSpec{
 	{Name: string(v1.ResourceCPU), Weight: 1},
 	{Name: string(v1.ResourceMemory), Weight: 1},
 }
 
-func addDefaultingFuncs(scheme *runtime.Scheme) error {
-	return RegisterDefaults(scheme)
-}
+//func addDefaultingFuncs(scheme *runtime.Scheme) error {
+//	return RegisterDefaults(scheme)
+//}
 
-func pluginsNames(p *config.Plugins) []string {
+func pluginsNames(p *Plugins) []string {
 	if p == nil {
 		return nil
 	}
-	extensions := []config.PluginSet{
+	extensions := []PluginSet{
 		p.MultiPoint,
 		p.PreFilter,
 		p.Filter,
@@ -62,7 +61,7 @@ func pluginsNames(p *config.Plugins) []string {
 	return n.List()
 }
 
-func setDefaults_KubeSchedulerProfile(prof *config.KubeSchedulerProfile) {
+func setDefaults_KubeSchedulerProfile(prof *SchedulerProfile) {
 	// Set default plugins.
 	prof.Plugins = mergePlugins(getDefaultPlugins(), prof.Plugins)
 	// Set default plugin configs.
@@ -82,7 +81,7 @@ func setDefaults_KubeSchedulerProfile(prof *config.KubeSchedulerProfile) {
 		if existingConfigs.Has(name) {
 			continue
 		}
-		gvk := config.SchemeGroupVersion.WithKind(name + "Args")
+		gvk := SchemeGroupVersion.WithKind(name + "Args")
 		args, err := scheme.New(gvk)
 		if err != nil {
 			// This plugin is out-of-tree or doesn't require configuration.
@@ -90,7 +89,7 @@ func setDefaults_KubeSchedulerProfile(prof *config.KubeSchedulerProfile) {
 		}
 		scheme.Default(args)
 		args.GetObjectKind().SetGroupVersionKind(gvk)
-		prof.PluginConfig = append(prof.PluginConfig, config.PluginConfig{
+		prof.PluginConfig = append(prof.PluginConfig, PluginConfig{
 			Name: name,
 			Args: args,
 		})
@@ -98,13 +97,13 @@ func setDefaults_KubeSchedulerProfile(prof *config.KubeSchedulerProfile) {
 }
 
 // SetDefaults_KubeSchedulerConfiguration sets additional defaults
-func SetDefaults_KubeSchedulerConfiguration(obj *config.SchedulerConfiguration) {
+func SetDefaults_KubeSchedulerConfiguration(obj *SchedulerConfiguration) {
 	if obj.Parallelism == 0 {
 		obj.Parallelism = 16
 	}
 
 	if len(obj.Profiles) == 0 {
-		obj.Profiles = append(obj.Profiles, config.KubeSchedulerProfile{})
+		obj.Profiles = append(obj.Profiles, SchedulerProfile{})
 	}
 	// Only apply a default scheduler name when there is a single profile.
 	// Validation will ensure that every profile has a non-empty unique name.
@@ -119,7 +118,7 @@ func SetDefaults_KubeSchedulerConfiguration(obj *config.SchedulerConfiguration) 
 	}
 
 	if obj.PercentageOfFoodsToScore == 0 {
-		percentageOfFoodsToScore := int32(config.DefaultPercentageOfFoodsToScore)
+		percentageOfFoodsToScore := int32(DefaultPercentageOfFoodsToScore)
 		obj.PercentageOfFoodsToScore = percentageOfFoodsToScore
 	}
 
@@ -130,10 +129,10 @@ func SetDefaults_KubeSchedulerConfiguration(obj *config.SchedulerConfiguration) 
 		obj.LeaderElection.ResourceLock = "leases"
 	}
 	if len(obj.LeaderElection.ResourceNamespace) == 0 {
-		obj.LeaderElection.ResourceNamespace = config.SchedulerDefaultLockObjectNamespace
+		obj.LeaderElection.ResourceNamespace = SchedulerDefaultLockObjectNamespace
 	}
 	if len(obj.LeaderElection.ResourceName) == 0 {
-		obj.LeaderElection.ResourceName = config.SchedulerDefaultLockObjectName
+		obj.LeaderElection.ResourceName = SchedulerDefaultLockObjectName
 	}
 
 	if len(obj.ClientConnection.ContentType) == 0 {
@@ -177,7 +176,7 @@ func SetDefaults_KubeSchedulerConfiguration(obj *config.SchedulerConfiguration) 
 	}
 }
 
-func SetDefaults_DefaultPreemptionArgs(obj *config.DefaultPreemptionArgs) {
+func SetDefaults_DefaultPreemptionArgs(obj *DefaultPreemptionArgs) {
 	if obj.MinCandidateFoodsPercentage == 0 {
 		obj.MinCandidateFoodsPercentage = 10
 	}
@@ -186,31 +185,31 @@ func SetDefaults_DefaultPreemptionArgs(obj *config.DefaultPreemptionArgs) {
 	}
 }
 
-func SetDefaults_InterDguestAffinityArgs(obj *config.InterDguestAffinityArgs) {
+func SetDefaults_InterDguestAffinityArgs(obj *InterDguestAffinityArgs) {
 	if obj.HardDguestAffinityWeight == 0 {
 		obj.HardDguestAffinityWeight = 1
 	}
 }
 
-func SetDefaults_VolumeBindingArgs(obj *config.VolumeBindingArgs) {
+func SetDefaults_VolumeBindingArgs(obj *VolumeBindingArgs) {
 	if obj.BindTimeoutSeconds == 0 {
 		obj.BindTimeoutSeconds = 600
 	}
 	if len(obj.Shape) == 0 && feature.DefaultFeatureGate.Enabled(features.VolumeCapacityPriority) {
-		obj.Shape = []config.UtilizationShapePoint{
+		obj.Shape = []UtilizationShapePoint{
 			{
 				Utilization: 0,
 				Score:       0,
 			},
 			{
 				Utilization: 100,
-				Score:       int32(config.MaxCustomPriorityScore),
+				Score:       int32(MaxCustomPriorityScore),
 			},
 		}
 	}
 }
 
-func SetDefaults_FoodResourcesBalancedAllocationArgs(obj *config.FoodResourcesBalancedAllocationArgs) {
+func SetDefaults_FoodResourcesBalancedAllocationArgs(obj *FoodResourcesBalancedAllocationArgs) {
 	if len(obj.Resources) == 0 {
 		obj.Resources = defaultResourceSpec
 		return
@@ -223,16 +222,16 @@ func SetDefaults_FoodResourcesBalancedAllocationArgs(obj *config.FoodResourcesBa
 	}
 }
 
-func SetDefaults_DguestTopologySpreadArgs(obj *config.DguestTopologySpreadArgs) {
+func SetDefaults_DguestTopologySpreadArgs(obj *DguestTopologySpreadArgs) {
 	if obj.DefaultingType == "" {
-		obj.DefaultingType = config.SystemDefaulting
+		obj.DefaultingType = SystemDefaulting
 	}
 }
 
-func SetDefaults_FoodResourcesFitArgs(obj *config.FoodResourcesFitArgs) {
+func SetDefaults_FoodResourcesFitArgs(obj *FoodResourcesFitArgs) {
 	if obj.ScoringStrategy == nil {
-		obj.ScoringStrategy = &config.ScoringStrategy{
-			Type:      config.ScoringStrategyType(config.LeastAllocated),
+		obj.ScoringStrategy = &ScoringStrategy{
+			Type:      ScoringStrategyType(LeastAllocated),
 			Resources: defaultResourceSpec,
 		}
 	}

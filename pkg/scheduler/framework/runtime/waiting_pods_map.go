@@ -17,12 +17,12 @@ limitations under the License.
 package runtime
 
 import (
+	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
 	"fmt"
 	"sync"
 	"time"
 
 	"dguest-scheduler/pkg/scheduler/framework"
-	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 

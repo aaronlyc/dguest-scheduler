@@ -17,9 +17,9 @@ limitations under the License.
 package testing
 
 import (
+	v12 "dguest-scheduler/pkg/scheduler/apis/config/v1"
 	"testing"
 
-	"dguest-scheduler/pkg/scheduler/apis/config"
 	"dguest-scheduler/pkg/scheduler/apis/config/scheme"
 	"k8s.io/component-base/config/v1alpha1"
 	v1 "k8s.io/kube-scheduler/config/v1"
@@ -28,11 +28,11 @@ import (
 )
 
 // V1beta2ToInternalWithDefaults creates a v1beta2 default configuration.
-func V1beta2ToInternalWithDefaults(t *testing.T, versionedCfg v1beta2.KubeSchedulerConfiguration) *config.SchedulerConfiguration {
+func V1beta2ToInternalWithDefaults(t *testing.T, versionedCfg v1beta2.KubeSchedulerConfiguration) *v12.SchedulerConfiguration {
 	versionedCfg.DebuggingConfiguration = *v1alpha1.NewRecommendedDebuggingConfiguration()
 
 	scheme.Scheme.Default(&versionedCfg)
-	cfg := config.SchedulerConfiguration{}
+	cfg := v12.SchedulerConfiguration{}
 	if err := scheme.Scheme.Convert(&versionedCfg, &cfg, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -40,11 +40,11 @@ func V1beta2ToInternalWithDefaults(t *testing.T, versionedCfg v1beta2.KubeSchedu
 }
 
 // V1beta3ToInternalWithDefaults creates a v1beta3 default configuration.
-func V1beta3ToInternalWithDefaults(t *testing.T, versionedCfg v1beta3.KubeSchedulerConfiguration) *config.SchedulerConfiguration {
+func V1beta3ToInternalWithDefaults(t *testing.T, versionedCfg v1beta3.KubeSchedulerConfiguration) *v12.SchedulerConfiguration {
 	versionedCfg.DebuggingConfiguration = *v1alpha1.NewRecommendedDebuggingConfiguration()
 
 	scheme.Scheme.Default(&versionedCfg)
-	cfg := config.SchedulerConfiguration{}
+	cfg := v12.SchedulerConfiguration{}
 	if err := scheme.Scheme.Convert(&versionedCfg, &cfg, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -52,11 +52,11 @@ func V1beta3ToInternalWithDefaults(t *testing.T, versionedCfg v1beta3.KubeSchedu
 }
 
 // V1ToInternalWithDefaults creates a v1 default configuration.
-func V1ToInternalWithDefaults(t *testing.T, versionedCfg v1.KubeSchedulerConfiguration) *config.SchedulerConfiguration {
+func V1ToInternalWithDefaults(t *testing.T, versionedCfg v1.KubeSchedulerConfiguration) *v12.SchedulerConfiguration {
 	versionedCfg.DebuggingConfiguration = *v1alpha1.NewRecommendedDebuggingConfiguration()
 
 	scheme.Scheme.Default(&versionedCfg)
-	cfg := config.SchedulerConfiguration{}
+	cfg := v12.SchedulerConfiguration{}
 	if err := scheme.Scheme.Convert(&versionedCfg, &cfg, nil); err != nil {
 		t.Fatal(err)
 	}

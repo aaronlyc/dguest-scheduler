@@ -1,23 +1,7 @@
-/*
-Copyright 2016 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package util
 
 import (
-	v1 "k8s.io/api/core/v1"
+	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
 )
 
 // For each of these resources, a dguest that doesn't request the resource explicitly
@@ -38,32 +22,32 @@ const (
 // GetNonzeroRequests returns the default cpu and memory resource request if none is found or
 // what is provided on the request.
 func GetNonzeroRequests(requests *v1alpha1.ResourceList) (int64, int64) {
-	return GetRequestForResource(v1.ResourceCPU, requests, true),
-		GetRequestForResource(v1.ResourceMemory, requests, true)
+	return GetRequestForResource(v1alpha1.ResourceCPU, requests, true),
+		GetRequestForResource(v1alpha1.ResourceMemory, requests, true)
 }
 
 // GetRequestForResource returns the requested values unless nonZero is true and there is no defined request
 // for CPU and memory.
 // If nonZero is true and the resource has no defined request for CPU or memory, it returns a default value.
-func GetRequestForResource(resource v1.ResourceName, requests *v1alpha1.ResourceList, nonZero bool) int64 {
+func GetRequestForResource(resource v1alpha1.ResourceName, requests *v1alpha1.ResourceList, nonZero bool) int64 {
 	if requests == nil {
 		return 0
 	}
 	switch resource {
-	case v1.ResourceCPU:
+	case v1alpha1.ResourceCPU:
 		// Override if un-set, but not if explicitly set to zero
-		if _, found := (*requests)[v1.ResourceCPU]; !found && nonZero {
+		if _, found := (*requests)[v1alpha1.ResourceCPU]; !found && nonZero {
 			return DefaultMilliCPURequest
 		}
 		return requests.Cpu().MilliValue()
-	case v1.ResourceMemory:
+	case v1alpha1.ResourceMemory:
 		// Override if un-set, but not if explicitly set to zero
-		if _, found := (*requests)[v1.ResourceMemory]; !found && nonZero {
+		if _, found := (*requests)[v1alpha1.ResourceMemory]; !found && nonZero {
 			return DefaultMemoryRequest
 		}
 		return requests.Memory().Value()
-	case v1.ResourceEphemeralStorage:
-		quantity, found := (*requests)[v1.ResourceEphemeralStorage]
+	case v1alpha1.ResourceBandwidth:
+		quantity, found := (*requests)[v1alpha1.ResourceBandwidth]
 		if !found {
 			return 0
 		}

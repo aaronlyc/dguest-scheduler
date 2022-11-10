@@ -17,10 +17,10 @@ limitations under the License.
 package cache
 
 import (
+	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
 	"fmt"
 
 	"dguest-scheduler/pkg/scheduler/framework"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -84,11 +84,13 @@ func NewSnapshot(dguests []*v1alpha1.Dguest, foods []*v1alpha1.Food) *Snapshot {
 func createFoodInfoMap(dguests []*v1alpha1.Dguest, foods []*v1alpha1.Food) map[string]*framework.FoodInfo {
 	foodNameToInfo := make(map[string]*framework.FoodInfo)
 	for _, dguest := range dguests {
-		foodName := dguest.Spec.FoodName
-		if _, ok := foodNameToInfo[foodName]; !ok {
-			foodNameToInfo[foodName] = framework.NewFoodInfo()
+		for _, info := range dguest.Status.FoodsInfo {
+			foodName := info.Name
+			if _, ok := foodNameToInfo[foodName]; !ok {
+				foodNameToInfo[foodName] = framework.NewFoodInfo()
+			}
+			foodNameToInfo[foodName].AddDguest(dguest)
 		}
-		foodNameToInfo[foodName].AddDguest(dguest)
 	}
 	imageExistenceMap := createImageExistenceMap(foods)
 
@@ -105,20 +107,20 @@ func createFoodInfoMap(dguests []*v1alpha1.Dguest, foods []*v1alpha1.Food) map[s
 
 func createUsedPVCSet(dguests []*v1alpha1.Dguest) sets.String {
 	usedPVCSet := sets.NewString()
-	for _, dguest := range dguests {
-		if dguest.Spec.FoodName == "" {
-			continue
-		}
-
-		for _, v := range dguest.Spec.Volumes {
-			if v.PersistentVolumeClaim == nil {
-				continue
-			}
-
-			key := framework.GetNamespacedName(dguest.Namespace, v.PersistentVolumeClaim.ClaimName)
-			usedPVCSet.Insert(key)
-		}
-	}
+	//for _, dguest := range dguests {
+	//	if dguest.Spec.FoodName == "" {
+	//		continue
+	//	}
+	//
+	//	for _, v := range dguest.Spec.Volumes {
+	//		if v.PersistentVolumeClaim == nil {
+	//			continue
+	//		}
+	//
+	//		key := framework.GetNamespacedName(dguest.Namespace, v.PersistentVolumeClaim.ClaimName)
+	//		usedPVCSet.Insert(key)
+	//	}
+	//}
 	return usedPVCSet
 }
 
@@ -126,31 +128,31 @@ func createUsedPVCSet(dguests []*v1alpha1.Dguest) sets.String {
 func getFoodImageStates(food *v1alpha1.Food, imageExistenceMap map[string]sets.String) map[string]*framework.ImageStateSummary {
 	imageStates := make(map[string]*framework.ImageStateSummary)
 
-	for _, image := range food.Status.Images {
-		for _, name := range image.Names {
-			imageStates[name] = &framework.ImageStateSummary{
-				Size:     image.SizeBytes,
-				NumFoods: len(imageExistenceMap[name]),
-			}
-		}
-	}
+	//for _, image := range food.Status.Images {
+	//	for _, name := range image.Names {
+	//		imageStates[name] = &framework.ImageStateSummary{
+	//			Size:     image.SizeBytes,
+	//			NumFoods: len(imageExistenceMap[name]),
+	//		}
+	//	}
+	//}
 	return imageStates
 }
 
 // createImageExistenceMap returns a map recording on which foods the images exist, keyed by the images' names.
 func createImageExistenceMap(foods []*v1alpha1.Food) map[string]sets.String {
 	imageExistenceMap := make(map[string]sets.String)
-	for _, food := range foods {
-		for _, image := range food.Status.Images {
-			for _, name := range image.Names {
-				if _, ok := imageExistenceMap[name]; !ok {
-					imageExistenceMap[name] = sets.NewString(food.Name)
-				} else {
-					imageExistenceMap[name].Insert(food.Name)
-				}
-			}
-		}
-	}
+	//for _, food := range foods {
+	//	for _, image := range food.Status.Images {
+	//		for _, name := range image.Names {
+	//			if _, ok := imageExistenceMap[name]; !ok {
+	//				imageExistenceMap[name] = sets.NewString(food.Name)
+	//			} else {
+	//				imageExistenceMap[name].Insert(food.Name)
+	//			}
+	//		}
+	//	}
+	//}
 	return imageExistenceMap
 }
 

@@ -17,10 +17,10 @@ limitations under the License.
 package validation
 
 import (
+	v12 "dguest-scheduler/pkg/scheduler/apis/config/v1"
 	"fmt"
 	"strings"
 
-	"dguest-scheduler/pkg/scheduler/apis/config"
 	v1 "k8s.io/api/core/v1"
 	metav1validation "k8s.io/apimachinery/pkg/apis/meta/v1/validation"
 	"k8s.io/apimachinery/pkg/util/errors"
@@ -31,13 +31,13 @@ import (
 )
 
 var supportedScoringStrategyTypes = sets.NewString(
-	string(config.LeastAllocated),
-	string(config.MostAllocated),
-	string(config.RequestedToCapacityRatio),
+	string(v12.LeastAllocated),
+	string(v12.MostAllocated),
+	string(v12.RequestedToCapacityRatio),
 )
 
 // ValidateDefaultPreemptionArgs validates that DefaultPreemptionArgs are correct.
-func ValidateDefaultPreemptionArgs(path *field.Path, args *config.DefaultPreemptionArgs) error {
+func ValidateDefaultPreemptionArgs(path *field.Path, args *v12.DefaultPreemptionArgs) error {
 	var allErrs field.ErrorList
 	percentagePath := path.Child("minCandidateFoodsPercentage")
 	absolutePath := path.Child("minCandidateFoodsAbsolute")
@@ -74,7 +74,7 @@ func validateMinCandidateFoodsAbsolute(minCandidateFoodsAbsolute int32, p *field
 }
 
 // ValidateInterDguestAffinityArgs validates that InterDguestAffinityArgs are correct.
-func ValidateInterDguestAffinityArgs(path *field.Path, args *config.InterDguestAffinityArgs) error {
+func ValidateInterDguestAffinityArgs(path *field.Path, args *v12.InterDguestAffinityArgs) error {
 	return validateHardDguestAffinityWeight(path.Child("hardDguestAffinityWeight"), args.HardDguestAffinityWeight)
 }
 
@@ -95,7 +95,7 @@ func validateHardDguestAffinityWeight(path *field.Path, w int32) error {
 // ValidateDguestTopologySpreadArgs validates that DguestTopologySpreadArgs are correct.
 // It replicates the validation from pkg/apis/core/validation.validateTopologySpreadConstraints
 // with an additional check for .labelSelector to be nil.
-func ValidateDguestTopologySpreadArgs(path *field.Path, args *config.DguestTopologySpreadArgs) error {
+func ValidateDguestTopologySpreadArgs(path *field.Path, args *v12.DguestTopologySpreadArgs) error {
 	var allErrs field.ErrorList
 	if err := validateDefaultingType(path.Child("defaultingType"), args.DefaultingType, args.DefaultConstraints); err != nil {
 		allErrs = append(allErrs, err)
@@ -126,11 +126,11 @@ func ValidateDguestTopologySpreadArgs(path *field.Path, args *config.DguestTopol
 	return allErrs.ToAggregate()
 }
 
-func validateDefaultingType(p *field.Path, v config.DguestTopologySpreadConstraintsDefaulting, constraints []v1.TopologySpreadConstraint) *field.Error {
-	if v != config.SystemDefaulting && v != config.ListDefaulting {
-		return field.NotSupported(p, v, []string{string(config.SystemDefaulting), string(config.ListDefaulting)})
+func validateDefaultingType(p *field.Path, v v12.DguestTopologySpreadConstraintsDefaulting, constraints []v1.TopologySpreadConstraint) *field.Error {
+	if v != v12.SystemDefaulting && v != v12.ListDefaulting {
+		return field.NotSupported(p, v, []string{string(v12.SystemDefaulting), string(v12.ListDefaulting)})
 	}
-	if v == config.SystemDefaulting && len(constraints) > 0 {
+	if v == v12.SystemDefaulting && len(constraints) > 0 {
 		return field.Invalid(p, v, "when .defaultConstraints are not empty")
 	}
 	return nil
@@ -169,12 +169,12 @@ func validateConstraintNotRepeat(path *field.Path, constraints []v1.TopologySpre
 	return nil
 }
 
-func validateFunctionShape(shape []config.UtilizationShapePoint, path *field.Path) field.ErrorList {
+func validateFunctionShape(shape []v12.UtilizationShapePoint, path *field.Path) field.ErrorList {
 	const (
 		minUtilization = 0
 		maxUtilization = 100
 		minScore       = 0
-		maxScore       = int32(config.MaxCustomPriorityScore)
+		maxScore       = int32(v12.MaxCustomPriorityScore)
 	)
 
 	var allErrs field.ErrorList
@@ -206,7 +206,7 @@ func validateFunctionShape(shape []config.UtilizationShapePoint, path *field.Pat
 	return allErrs
 }
 
-func validateResources(resources []config.ResourceSpec, p *field.Path) field.ErrorList {
+func validateResources(resources []v12.ResourceSpec, p *field.Path) field.ErrorList {
 	var allErrs field.ErrorList
 	for i, resource := range resources {
 		if resource.Weight <= 0 || resource.Weight > 100 {
@@ -218,7 +218,7 @@ func validateResources(resources []config.ResourceSpec, p *field.Path) field.Err
 }
 
 // ValidateFoodResourcesBalancedAllocationArgs validates that FoodResourcesBalancedAllocationArgs are set correctly.
-func ValidateFoodResourcesBalancedAllocationArgs(path *field.Path, args *config.FoodResourcesBalancedAllocationArgs) error {
+func ValidateFoodResourcesBalancedAllocationArgs(path *field.Path, args *v12.FoodResourcesBalancedAllocationArgs) error {
 	var allErrs field.ErrorList
 	seenResources := sets.NewString()
 	for i, resource := range args.Resources {
@@ -235,7 +235,7 @@ func ValidateFoodResourcesBalancedAllocationArgs(path *field.Path, args *config.
 }
 
 // ValidateFoodAffinityArgs validates that FoodAffinityArgs are correct.
-func ValidateFoodAffinityArgs(path *field.Path, args *config.FoodAffinityArgs) error {
+func ValidateFoodAffinityArgs(path *field.Path, args *v12.FoodAffinityArgs) error {
 	//if args.AddedAffinity == nil {
 	//	return nil
 	//}
@@ -263,14 +263,14 @@ type VolumeBindingArgsValidationOptions struct {
 }
 
 // ValidateVolumeBindingArgs validates that VolumeBindingArgs are set correctly.
-func ValidateVolumeBindingArgs(path *field.Path, args *config.VolumeBindingArgs) error {
+func ValidateVolumeBindingArgs(path *field.Path, args *v12.VolumeBindingArgs) error {
 	return ValidateVolumeBindingArgsWithOptions(path, args, VolumeBindingArgsValidationOptions{
 		AllowVolumeCapacityPriority: utilfeature.DefaultFeatureGate.Enabled(features.VolumeCapacityPriority),
 	})
 }
 
 // ValidateVolumeBindingArgs validates that VolumeBindingArgs with scheduler features.
-func ValidateVolumeBindingArgsWithOptions(path *field.Path, args *config.VolumeBindingArgs, opts VolumeBindingArgsValidationOptions) error {
+func ValidateVolumeBindingArgsWithOptions(path *field.Path, args *v12.VolumeBindingArgs, opts VolumeBindingArgsValidationOptions) error {
 	var allErrs field.ErrorList
 
 	if args.BindTimeoutSeconds < 0 {
@@ -288,7 +288,7 @@ func ValidateVolumeBindingArgsWithOptions(path *field.Path, args *config.VolumeB
 	return allErrs.ToAggregate()
 }
 
-func ValidateFoodResourcesFitArgs(path *field.Path, args *config.FoodResourcesFitArgs) error {
+func ValidateFoodResourcesFitArgs(path *field.Path, args *v12.FoodResourcesFitArgs) error {
 	var allErrs field.ErrorList
 	resPath := path.Child("ignoredResources")
 	for i, res := range args.IgnoredResources {

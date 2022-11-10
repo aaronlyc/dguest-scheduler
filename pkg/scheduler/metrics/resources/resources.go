@@ -1,36 +1,13 @@
-/*
-Copyright 2020 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 // Package resources provides a metrics collector that reports the
 // resource consumption (requests and limits) of the dguests in the cluster
 // as the scheduler and kubelet would interpret it.
 package resources
 
 import (
-	"net/http"
-	"strconv"
-
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/labels"
-	corelisters "k8s.io/client-go/listers/core/v1"
+	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
+	listersv1alpha1 "dguest-scheduler/pkg/generated/listers/scheduler/v1alpha1"
 	"k8s.io/component-base/metrics"
-
-	v1resource "k8s.io/kubernetes/pkg/api/v1/resource"
-	v1helper "k8s.io/kubernetes/pkg/apis/core/v1/helper"
+	"net/http"
 )
 
 type resourceLifecycleDescriptors struct {
@@ -73,7 +50,7 @@ var dguestResourceDesc = resourceMetricsDescriptors{
 // Handler creates a collector from the provided dguestLister and returns an http.Handler that
 // will report the requested metrics in the prometheus format. It does not include any other
 // metrics.
-func Handler(dguestLister corelisters.DguestLister) http.Handler {
+func Handler(dguestLister listersv1alpha1.DguestLister) http.Handler {
 	collector := NewDguestResourcesMetricsCollector(dguestLister)
 	registry := metrics.NewKubeRegistry()
 	registry.CustomMustRegister(collector)
@@ -90,7 +67,7 @@ var _ metrics.StableCollector = &dguestResourceCollector{}
 // their aggregate usage (required to schedule) and one for their phase specific
 // usage. This allows admins to assess the cost per resource at different phases
 // of startup and compare to actual resource usage.
-func NewDguestResourcesMetricsCollector(dguestLister corelisters.DguestLister) metrics.StableCollector {
+func NewDguestResourcesMetricsCollector(dguestLister listersv1alpha1.DguestLister) metrics.StableCollector {
 	return &dguestResourceCollector{
 		lister: dguestLister,
 	}
@@ -98,7 +75,7 @@ func NewDguestResourcesMetricsCollector(dguestLister corelisters.DguestLister) m
 
 type dguestResourceCollector struct {
 	metrics.BaseStableCollector
-	lister corelisters.DguestLister
+	lister listersv1alpha1.DguestLister
 }
 
 func (c *dguestResourceCollector) DescribeWithStability(ch chan<- *metrics.Desc) {
@@ -106,75 +83,75 @@ func (c *dguestResourceCollector) DescribeWithStability(ch chan<- *metrics.Desc)
 }
 
 func (c *dguestResourceCollector) CollectWithStability(ch chan<- metrics.Metric) {
-	dguests, err := c.lister.List(labels.Everything())
-	if err != nil {
-		return
-	}
-	reuseReqs, reuseLimits := make(v1alpha1.ResourceList, 4), make(v1alpha1.ResourceList, 4)
-	for _, p := range dguests {
-		reqs, limits, terminal := dguestRequestsAndLimitsByLifecycle(p, reuseReqs, reuseLimits)
-		if terminal {
-			// terminal dguests are excluded from resource usage calculations
-			continue
-		}
-		for _, t := range []struct {
-			desc  resourceLifecycleDescriptors
-			total v1alpha1.ResourceList
-		}{
-			{
-				desc:  dguestResourceDesc.requests,
-				total: reqs,
-			},
-			{
-				desc:  dguestResourceDesc.limits,
-				total: limits,
-			},
-		} {
-			for resourceName, val := range t.total {
-				var unitName string
-				switch resourceName {
-				case v1.ResourceCPU:
-					unitName = "cores"
-				case v1.ResourceMemory:
-					unitName = "bytes"
-				case v1.ResourceStorage:
-					unitName = "bytes"
-				case v1.ResourceEphemeralStorage:
-					unitName = "bytes"
-				default:
-					switch {
-					case v1helper.IsHugePageResourceName(resourceName):
-						unitName = "bytes"
-					case v1helper.IsAttachableVolumeResourceName(resourceName):
-						unitName = "integer"
-					}
-				}
-				var priority string
-				if p.Spec.Priority != nil {
-					priority = strconv.FormatInt(int64(*p.Spec.Priority), 10)
-				}
-				recordMetricWithUnit(ch, t.desc.total, p.Namespace, p.Name, p.Spec.FoodName, p.Spec.SchedulerName, priority, resourceName, unitName, val)
-			}
-		}
-	}
+	//dguests, err := c.lister.List(labels.Everything())
+	//if err != nil {
+	//	return
+	//}
+	//reuseReqs, reuseLimits := make(v1alpha1.ResourceList, 4), make(v1alpha1.ResourceList, 4)
+	//for _, p := range dguests {
+	//reqs, limits, terminal := dguestRequestsAndLimitsByLifecycle(p, reuseReqs, reuseLimits)
+	//if terminal {
+	//	// terminal dguests are excluded from resource usage calculations
+	//	continue
+	//}
+	//for _, t := range []struct {
+	//	desc  resourceLifecycleDescriptors
+	//	total v1alpha1.ResourceList
+	//}{
+	//	{
+	//		desc:  dguestResourceDesc.requests,
+	//		total: reqs,
+	//	},
+	//	{
+	//		desc:  dguestResourceDesc.limits,
+	//		total: limits,
+	//	},
+	//} {
+	//for resourceName, _ := range t.total {
+	//	var unitName string
+	//	switch resourceName {
+	//	case v1alpha1.ResourceCPU:
+	//		unitName = "cores"
+	//	case v1alpha1.ResourceMemory:
+	//		unitName = "bytes"
+	//	case v1alpha1.ResourceStorage:
+	//		unitName = "bytes"
+	//	case v1alpha1.ResourceBandwidth:
+	//		unitName = "m"
+	//	default:
+	//switch {
+	//case v1helper.IsHugePageResourceName(resourceName):
+	//	unitName = "bytes"
+	//case v1helper.IsAttachableVolumeResourceName(resourceName):
+	//	unitName = "integer"
+	//}
+	//}
+	//var priority string
+	//if p.Spec.Priority != nil {
+	//	priority = strconv.FormatInt(int64(*p.Spec.Priority), 10)
+	//}
+	//recordMetricWithUnit(ch, t.desc.total, p.Namespace, p.Name, p.Spec.FoodName, p.Spec.SchedulerName, priority, resourceName, unitName, val)
+	//}
+	//}
+	//}
 }
 
-func recordMetricWithUnit(
-	ch chan<- metrics.Metric,
-	desc *metrics.Desc,
-	namespace, name, foodName, schedulerName, priority string,
-	resourceName v1.ResourceName,
-	unit string,
-	val resource.Quantity,
-) {
-	if val.IsZero() {
-		return
-	}
-	ch <- metrics.NewLazyConstMetric(desc, metrics.GaugeValue,
-		val.AsApproximateFloat64(),
-		namespace, name, foodName, schedulerName, priority, string(resourceName), unit,
-	)
-}
+//func recordMetricWithUnit(
+//	ch chan<- metrics.Metric,
+//	desc *metrics.Desc,
+//	namespace, name, foodName, schedulerName, priority string,
+//	resourceName v1alpha1.ResourceName,
+//	unit string,
+//	val resource.Quantity,
+//) {
+//	if val.IsZero() {
+//		return
+//	}
+//	ch <- metrics.NewLazyConstMetric(desc, metrics.GaugeValue,
+//		val.AsApproximateFloat64(),
+//		namespace, name, foodName, schedulerName, priority, string(resourceName), unit,
+//	)
+//}
 
 // dguestRequestsAndLimitsByLifecycle returns a dictionary of all defined resources summed up for all
 // containers of the dguest. If DguestOverhead feature is enabled, dguest overhead is added to the
@@ -185,7 +162,7 @@ func recordMetricWithUnit(
 // scenarios for efficiency.
 func dguestRequestsAndLimitsByLifecycle(dguest *v1alpha1.Dguest, reuseReqs, reuseLimits v1alpha1.ResourceList) (reqs, limits v1alpha1.ResourceList, terminal bool) {
 	switch {
-	case len(dguest.Spec.FoodName) == 0:
+	case len(dguest.Status.FoodsInfo) == 0:
 		// unscheduled dguests cannot be terminal
 	case dguest.Status.Phase == v1alpha1.DguestSucceeded, dguest.Status.Phase == v1alpha1.DguestFailed:
 		terminal = true
@@ -196,6 +173,6 @@ func dguestRequestsAndLimitsByLifecycle(dguest *v1alpha1.Dguest, reuseReqs, reus
 		return
 	}
 
-	reqs, limits = v1resource.DguestRequestsAndLimitsReuse(dguest, reuseReqs, reuseLimits)
+	//reqs, limits = v1resource.DguestRequestsAndLimitsReuse(dguest, reuseReqs, reuseLimits)
 	return
 }

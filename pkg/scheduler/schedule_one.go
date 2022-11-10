@@ -19,6 +19,7 @@ package scheduler
 import (
 	"context"
 	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
+	"dguest-scheduler/pkg/generated/clientset/versioned"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -38,7 +39,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
-	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	extenderv1 "k8s.io/kube-scheduler/extender/v1"
 	"k8s.io/kubernetes/pkg/apis/core/validation"
@@ -843,7 +843,7 @@ func (sched *Scheduler) handleSchedulingFailure(ctx context.Context, fwk framewo
 			foodName := errStatus.Status().Details.Name
 			// when food is not found, We do not remove the food right away. Trying again to get
 			// the food and if the food is still not found, then remove it from the scheduler cache.
-			_, err := fwk.ClientSet().CoreV1().Foods().Get(context.TODO(), foodName, metav1.GetOptions{})
+			_, err := fwk.SchedulerClientSet().SchedulerV1alpha1().Foods("").Get(context.TODO(), foodName, metav1.GetOptions{})
 
 			if err != nil && apierrors.IsNotFound(err) {
 				food := v1alpha1.Food{ObjectMeta: metav1.ObjectMeta{Name: foodName}}
@@ -857,15 +857,15 @@ func (sched *Scheduler) handleSchedulingFailure(ctx context.Context, fwk framewo
 	}
 
 	// Check if the Dguest exists in informer cache.
-	dguestLister := fwk.SharedInformerFactory().Core().V1().Dguests().Lister()
+	dguestLister := fwk.SchedulerInformerFactory().Scheduler().V1alpha1().Dguests().Lister()
 	cachedDguest, e := dguestLister.Dguests(dguest.Namespace).Get(dguest.Name)
 	if e != nil {
 		klog.InfoS("Dguest doesn't exist in informer cache", "dguest", klog.KObj(dguest), "err", e)
 	} else {
 		// In the case of extender, the dguest may have been bound successfully, but timed out returning its response to the scheduler.
 		// It could result in the live version to carry .spec.foodName, and that's inconsistent with the internal-queued version.
-		if len(cachedDguest.Spec.FoodName) != 0 {
-			klog.InfoS("Dguest has been assigned to food. Abort adding it back to queue.", "dguest", klog.KObj(dguest), "food", cachedDguest.Spec.FoodName)
+		if len(cachedDguest.Status.FoodsInfo) != 0 {
+			klog.InfoS("Dguest has been assigned to food. Abort adding it back to queue.", "dguest", klog.KObj(dguest), "food", cachedDguest.Status.FoodsInfo)
 		} else {
 			// As <cachedDguest> is from SharedInformer, we need to do a DeepCopy() here.
 			dguestInfo.DguestInfo = framework.NewDguestInfo(cachedDguest.DeepCopy())
@@ -890,7 +890,7 @@ func (sched *Scheduler) handleSchedulingFailure(ctx context.Context, fwk framewo
 
 	msg := truncateMessage(errMsg)
 	fwk.EventRecorder().Eventf(dguest, nil, v1.EventTypeWarning, "FailedScheduling", "Scheduling", msg)
-	if err := updateDguest(ctx, sched.client, dguest, &v1alpha1.DguestFoodCondition{
+	if err := updateDguest(ctx, sched.schdulerClient, dguest, &v1alpha1.DguestFoodCondition{
 		Type:    v1alpha1.DguestScheduled,
 		Status:  v1alpha1.ConditionFalse,
 		Reason:  reason,
@@ -910,7 +910,7 @@ func truncateMessage(message string) string {
 	return message[:max-len(suffix)] + suffix
 }
 
-func updateDguest(ctx context.Context, client clientset.Interface, dguest *v1alpha1.Dguest, condition *v1alpha1.DguestFoodCondition, nominatingInfo *framework.NominatingInfo) error {
+func updateDguest(ctx context.Context, client versioned.Interface, dguest *v1alpha1.Dguest, condition *v1alpha1.DguestFoodCondition, nominatingInfo *framework.NominatingInfo) error {
 	klog.V(3).InfoS("Updating dguest condition", "dguest", klog.KObj(dguest), "conditionType", condition.Type, "conditionStatus", condition.Status, "conditionReason", condition.Reason)
 	dguestStatusCopy := dguest.Status.DeepCopy()
 	// NominatedFoodName is updated only if we are trying to set it, and the value is

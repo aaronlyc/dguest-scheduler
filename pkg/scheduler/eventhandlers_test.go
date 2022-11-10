@@ -16,10 +16,10 @@ package scheduler
 //
 //	"k8s.io/apimachinery/pkg/runtime"
 //	"k8s.io/apimachinery/pkg/runtime/schema"
-//	"k8s.io/client-go/dynamic/dynamicinformer"
-//	dyfake "k8s.io/client-go/dynamic/fake"
-//	"k8s.io/client-go/informers"
-//	"k8s.io/client-go/kubernetes/fake"
+//	"k8s.io/schdulerClient-go/dynamic/dynamicinformer"
+//	dyfake "k8s.io/schdulerClient-go/dynamic/fake"
+//	"k8s.io/schdulerClient-go/informers"
+//	"k8s.io/schdulerClient-go/kubernetes/fake"
 //
 //	"dguest-scheduler/pkg/scheduler/framework"
 //	"dguest-scheduler/pkg/scheduler/framework/plugins/foodaffinity"

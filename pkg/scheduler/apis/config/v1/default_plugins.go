@@ -1,33 +1,16 @@
-/*
-Copyright 2022 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package v1
 
 import (
-	"dguest-scheduler/pkg/scheduler/apis/config"
 	"dguest-scheduler/pkg/scheduler/framework/plugins/names"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 )
 
 // getDefaultPlugins returns the default set of plugins.
-func getDefaultPlugins() *config.Plugins {
-	plugins := &config.Plugins{
-		MultiPoint: config.PluginSet{
-			Enabled: []config.Plugin{
+func getDefaultPlugins() *Plugins {
+	plugins := &Plugins{
+		MultiPoint: PluginSet{
+			Enabled: []Plugin{
 				{Name: names.PrioritySort},
 				//{Name: names.FoodUnschedulable},
 				{Name: names.FoodName},
@@ -56,7 +39,7 @@ func getDefaultPlugins() *config.Plugins {
 }
 
 // mergePlugins merges the custom set into the given default one, handling disabled sets.
-func mergePlugins(defaultPlugins, customPlugins *config.Plugins) *config.Plugins {
+func mergePlugins(defaultPlugins, customPlugins *Plugins) *Plugins {
 	if customPlugins == nil {
 		return defaultPlugins
 	}
@@ -78,34 +61,34 @@ func mergePlugins(defaultPlugins, customPlugins *config.Plugins) *config.Plugins
 
 type pluginIndex struct {
 	index  int
-	plugin config.Plugin
+	plugin Plugin
 }
 
-func mergePluginSet(defaultPluginSet, customPluginSet config.PluginSet) config.PluginSet {
+func mergePluginSet(defaultPluginSet, customPluginSet PluginSet) PluginSet {
 	disabledPlugins := sets.NewString()
 	enabledCustomPlugins := make(map[string]pluginIndex)
 	// replacedPluginIndex is a set of index of plugins, which have replaced the default plugins.
 	replacedPluginIndex := sets.NewInt()
-	var disabled []config.Plugin
+	var disabled []Plugin
 	for _, disabledPlugin := range customPluginSet.Disabled {
 		// if the user is manually disabling any (or all, with "*") default plugins for an extension point,
 		// we need to track that so that the MultiPoint extension logic in the framework can know to skip
 		// inserting unspecified default plugins to this point.
-		disabled = append(disabled, config.Plugin{Name: disabledPlugin.Name})
+		disabled = append(disabled, Plugin{Name: disabledPlugin.Name})
 		disabledPlugins.Insert(disabledPlugin.Name)
 	}
 
 	// With MultiPoint, we may now have some disabledPlugins in the default registry
 	// For example, we enable PluginX with Filter+Score through MultiPoint but disable its Score plugin by default.
 	for _, disabledPlugin := range defaultPluginSet.Disabled {
-		disabled = append(disabled, config.Plugin{Name: disabledPlugin.Name})
+		disabled = append(disabled, Plugin{Name: disabledPlugin.Name})
 		disabledPlugins.Insert(disabledPlugin.Name)
 	}
 
 	for index, enabledPlugin := range customPluginSet.Enabled {
 		enabledCustomPlugins[enabledPlugin.Name] = pluginIndex{index, enabledPlugin}
 	}
-	var enabledPlugins []config.Plugin
+	var enabledPlugins []Plugin
 	if !disabledPlugins.Has("*") {
 		for _, defaultEnabledPlugin := range defaultPluginSet.Enabled {
 			if disabledPlugins.Has(defaultEnabledPlugin.Name) {
@@ -130,5 +113,5 @@ func mergePluginSet(defaultPluginSet, customPluginSet config.PluginSet) config.P
 			enabledPlugins = append(enabledPlugins, plugin)
 		}
 	}
-	return config.PluginSet{Enabled: enabledPlugins, Disabled: disabled}
+	return PluginSet{Enabled: enabledPlugins, Disabled: disabled}
 }

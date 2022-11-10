@@ -18,6 +18,8 @@ package runtime
 
 import (
 	"context"
+	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
+	"dguest-scheduler/pkg/scheduler/apis/config/v1"
 	"errors"
 	"fmt"
 	"reflect"
@@ -25,12 +27,10 @@ import (
 	"testing"
 	"time"
 
-	"dguest-scheduler/pkg/scheduler/apis/config"
 	"dguest-scheduler/pkg/scheduler/framework"
 	internalqueue "dguest-scheduler/pkg/scheduler/internal/queue"
 	"dguest-scheduler/pkg/scheduler/metrics"
 	"github.com/google/go-cmp/cmp"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -362,11 +362,11 @@ var food = &v1alpha1.Food{
 var lowPriority, highPriority = int32(0), int32(1000)
 var lowPriorityDguest = &v1alpha1.Dguest{
 	ObjectMeta: metav1.ObjectMeta{UID: "low"},
-	Spec:       v1alpha1.DguestSpec{Priority: &lowPriority},
+	Spec:       v1alpha1.DguestSpec{},
 }
 var highPriorityDguest = &v1alpha1.Dguest{
 	ObjectMeta: metav1.ObjectMeta{UID: "high"},
-	Spec:       v1alpha1.DguestSpec{Priority: &highPriority},
+	Spec:       v1alpha1.DguestSpec{},
 }
 var foods = []*v1alpha1.Food{
 	{ObjectMeta: metav1.ObjectMeta{Name: "food1"}},
@@ -378,7 +378,7 @@ var (
 	errInjectedFilterStatus = errors.New("injected filter status")
 )
 
-func newFrameworkWithQueueSortAndBind(r Registry, profile config.KubeSchedulerProfile, stopCh <-chan struct{}, opts ...Option) (framework.Framework, error) {
+func newFrameworkWithQueueSortAndBind(r Registry, profile v1.SchedulerProfile, stopCh <-chan struct{}, opts ...Option) (framework.Framework, error) {
 	if _, ok := r[queueSortPlugin]; !ok {
 		r[queueSortPlugin] = newQueueSortPlugin
 	}
@@ -387,10 +387,10 @@ func newFrameworkWithQueueSortAndBind(r Registry, profile config.KubeSchedulerPr
 	}
 
 	if len(profile.Plugins.QueueSort.Enabled) == 0 {
-		profile.Plugins.QueueSort.Enabled = append(profile.Plugins.QueueSort.Enabled, config.Plugin{Name: queueSortPlugin})
+		profile.Plugins.QueueSort.Enabled = append(profile.Plugins.QueueSort.Enabled, v1.Plugin{Name: queueSortPlugin})
 	}
 	if len(profile.Plugins.Bind.Enabled) == 0 {
-		profile.Plugins.Bind.Enabled = append(profile.Plugins.Bind.Enabled, config.Plugin{Name: bindPlugin})
+		profile.Plugins.Bind.Enabled = append(profile.Plugins.Bind.Enabled, v1.Plugin{Name: bindPlugin})
 	}
 	return NewFramework(r, &profile, stopCh, opts...)
 }
@@ -398,7 +398,7 @@ func newFrameworkWithQueueSortAndBind(r Registry, profile config.KubeSchedulerPr
 func TestInitFrameworkWithScorePlugins(t *testing.T) {
 	tests := []struct {
 		name    string
-		plugins *config.Plugins
+		plugins *v1.Plugins
 		// If initErr is true, we expect framework initialization to fail.
 		initErr bool
 	}{
@@ -414,7 +414,7 @@ func TestInitFrameworkWithScorePlugins(t *testing.T) {
 		},
 		{
 			name:    "Score plugins are nil",
-			plugins: &config.Plugins{},
+			plugins: &v1.Plugins{},
 		},
 		{
 			name:    "enabled Score plugin list is empty",
@@ -432,7 +432,7 @@ func TestInitFrameworkWithScorePlugins(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			profile := config.KubeSchedulerProfile{Plugins: tt.plugins}
+			profile := v1.SchedulerProfile{Plugins: tt.plugins}
 			stopCh := make(chan struct{})
 			defer close(stopCh)
 			_, err := newFrameworkWithQueueSortAndBind(registry, profile, stopCh)
@@ -449,35 +449,35 @@ func TestInitFrameworkWithScorePlugins(t *testing.T) {
 func TestNewFrameworkErrors(t *testing.T) {
 	tests := []struct {
 		name      string
-		plugins   *config.Plugins
-		pluginCfg []config.PluginConfig
+		plugins   *v1.Plugins
+		pluginCfg []v1.PluginConfig
 		wantErr   string
 	}{
 		{
 			name: "duplicate plugin name",
-			plugins: &config.Plugins{
-				PreFilter: config.PluginSet{
-					Enabled: []config.Plugin{
+			plugins: &v1.Plugins{
+				PreFilter: v1.PluginSet{
+					Enabled: []v1.Plugin{
 						{Name: duplicatePluginName, Weight: 1},
 						{Name: duplicatePluginName, Weight: 1},
 					},
 				},
 			},
-			pluginCfg: []config.PluginConfig{
+			pluginCfg: []v1.PluginConfig{
 				{Name: duplicatePluginName},
 			},
 			wantErr: "already registered",
 		},
 		{
 			name: "duplicate plugin config",
-			plugins: &config.Plugins{
-				PreFilter: config.PluginSet{
-					Enabled: []config.Plugin{
+			plugins: &v1.Plugins{
+				PreFilter: v1.PluginSet{
+					Enabled: []v1.Plugin{
 						{Name: duplicatePluginName, Weight: 1},
 					},
 				},
 			},
-			pluginCfg: []config.PluginConfig{
+			pluginCfg: []v1.PluginConfig{
 				{Name: duplicatePluginName},
 				{Name: duplicatePluginName},
 			},
@@ -487,7 +487,7 @@ func TestNewFrameworkErrors(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			profile := &config.KubeSchedulerProfile{
+			profile := &v1.SchedulerProfile{
 				Plugins:      tc.plugins,
 				PluginConfig: tc.pluginCfg,
 			}
@@ -502,292 +502,292 @@ func TestNewFrameworkErrors(t *testing.T) {
 func TestNewFrameworkMultiPointExpansion(t *testing.T) {
 	tests := []struct {
 		name        string
-		plugins     *config.Plugins
-		wantPlugins *config.Plugins
+		plugins     *v1.Plugins
+		wantPlugins *v1.Plugins
 		wantErr     string
 	}{
 		{
 			name: "plugin expansion",
-			plugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			plugins: &v1.Plugins{
+				MultiPoint: v1.PluginSet{
+					Enabled: []v1.Plugin{
 						{Name: testPlugin, Weight: 5},
 					},
 				},
 			},
-			wantPlugins: &config.Plugins{
-				QueueSort:  config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PreFilter:  config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				Filter:     config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PostFilter: config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PreScore:   config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				Score:      config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin, Weight: 5}}},
-				Reserve:    config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				Permit:     config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PreBind:    config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				Bind:       config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PostBind:   config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
+			wantPlugins: &v1.Plugins{
+				QueueSort:  v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PreFilter:  v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				Filter:     v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PostFilter: v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PreScore:   v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				Score:      v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin, Weight: 5}}},
+				Reserve:    v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				Permit:     v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PreBind:    v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				Bind:       v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PostBind:   v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
 			},
 		},
 		{
 			name: "disable MultiPoint plugin at some extension points",
-			plugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			plugins: &v1.Plugins{
+				MultiPoint: v1.PluginSet{
+					Enabled: []v1.Plugin{
 						{Name: testPlugin},
 					},
 				},
-				PreScore: config.PluginSet{
-					Disabled: []config.Plugin{
+				PreScore: v1.PluginSet{
+					Disabled: []v1.Plugin{
 						{Name: testPlugin},
 					},
 				},
-				Score: config.PluginSet{
-					Disabled: []config.Plugin{
+				Score: v1.PluginSet{
+					Disabled: []v1.Plugin{
 						{Name: testPlugin},
 					},
 				},
 			},
-			wantPlugins: &config.Plugins{
-				QueueSort:  config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PreFilter:  config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				Filter:     config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PostFilter: config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				Reserve:    config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				Permit:     config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PreBind:    config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				Bind:       config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PostBind:   config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
+			wantPlugins: &v1.Plugins{
+				QueueSort:  v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PreFilter:  v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				Filter:     v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PostFilter: v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				Reserve:    v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				Permit:     v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PreBind:    v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				Bind:       v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PostBind:   v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
 			},
 		},
 		{
 			name: "Multiple MultiPoint plugins",
-			plugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			plugins: &v1.Plugins{
+				MultiPoint: v1.PluginSet{
+					Enabled: []v1.Plugin{
 						{Name: testPlugin},
 						{Name: scorePlugin1},
 					},
 				},
 			},
-			wantPlugins: &config.Plugins{
-				QueueSort:  config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PreFilter:  config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				Filter:     config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PostFilter: config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PreScore: config.PluginSet{Enabled: []config.Plugin{
+			wantPlugins: &v1.Plugins{
+				QueueSort:  v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PreFilter:  v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				Filter:     v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PostFilter: v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PreScore: v1.PluginSet{Enabled: []v1.Plugin{
 					{Name: testPlugin},
 					{Name: scorePlugin1},
 				}},
-				Score: config.PluginSet{Enabled: []config.Plugin{
+				Score: v1.PluginSet{Enabled: []v1.Plugin{
 					{Name: testPlugin, Weight: 1},
 					{Name: scorePlugin1, Weight: 1},
 				}},
-				Reserve:  config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				Permit:   config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PreBind:  config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				Bind:     config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PostBind: config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
+				Reserve:  v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				Permit:   v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PreBind:  v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				Bind:     v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PostBind: v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
 			},
 		},
 		{
 			name: "disable MultiPoint extension",
-			plugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			plugins: &v1.Plugins{
+				MultiPoint: v1.PluginSet{
+					Enabled: []v1.Plugin{
 						{Name: testPlugin},
 						{Name: scorePlugin1},
 					},
 				},
-				PreScore: config.PluginSet{
-					Disabled: []config.Plugin{
+				PreScore: v1.PluginSet{
+					Disabled: []v1.Plugin{
 						{Name: "*"},
 					},
 				},
 			},
-			wantPlugins: &config.Plugins{
-				QueueSort:  config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PreFilter:  config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				Filter:     config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PostFilter: config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				Score: config.PluginSet{Enabled: []config.Plugin{
+			wantPlugins: &v1.Plugins{
+				QueueSort:  v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PreFilter:  v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				Filter:     v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PostFilter: v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				Score: v1.PluginSet{Enabled: []v1.Plugin{
 					{Name: testPlugin, Weight: 1},
 					{Name: scorePlugin1, Weight: 1},
 				}},
-				Reserve:  config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				Permit:   config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PreBind:  config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				Bind:     config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PostBind: config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
+				Reserve:  v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				Permit:   v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PreBind:  v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				Bind:     v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PostBind: v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
 			},
 		},
 		{
 			name: "Reorder MultiPoint plugins (specified extension takes precedence)",
-			plugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			plugins: &v1.Plugins{
+				MultiPoint: v1.PluginSet{
+					Enabled: []v1.Plugin{
 						{Name: scoreWithNormalizePlugin1},
 						{Name: testPlugin},
 						{Name: scorePlugin1},
 					},
 				},
-				Score: config.PluginSet{
-					Enabled: []config.Plugin{
+				Score: v1.PluginSet{
+					Enabled: []v1.Plugin{
 						{Name: scorePlugin1},
 						{Name: testPlugin},
 					},
 				},
 			},
-			wantPlugins: &config.Plugins{
-				QueueSort:  config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PreFilter:  config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				Filter:     config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PostFilter: config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PreScore: config.PluginSet{Enabled: []config.Plugin{
+			wantPlugins: &v1.Plugins{
+				QueueSort:  v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PreFilter:  v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				Filter:     v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PostFilter: v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PreScore: v1.PluginSet{Enabled: []v1.Plugin{
 					{Name: testPlugin},
 					{Name: scorePlugin1},
 				}},
-				Score: config.PluginSet{Enabled: []config.Plugin{
+				Score: v1.PluginSet{Enabled: []v1.Plugin{
 					{Name: scorePlugin1, Weight: 1},
 					{Name: testPlugin, Weight: 1},
 					{Name: scoreWithNormalizePlugin1, Weight: 1},
 				}},
-				Reserve:  config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				Permit:   config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PreBind:  config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				Bind:     config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PostBind: config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
+				Reserve:  v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				Permit:   v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PreBind:  v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				Bind:     v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PostBind: v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
 			},
 		},
 		{
 			name: "Reorder MultiPoint plugins (specified extension only takes precedence when it exists in MultiPoint)",
-			plugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			plugins: &v1.Plugins{
+				MultiPoint: v1.PluginSet{
+					Enabled: []v1.Plugin{
 						{Name: testPlugin},
 						{Name: scorePlugin1},
 					},
 				},
-				Score: config.PluginSet{
-					Enabled: []config.Plugin{
+				Score: v1.PluginSet{
+					Enabled: []v1.Plugin{
 						{Name: scoreWithNormalizePlugin1},
 						{Name: scorePlugin1},
 						{Name: testPlugin},
 					},
 				},
 			},
-			wantPlugins: &config.Plugins{
-				QueueSort:  config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PreFilter:  config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				Filter:     config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PostFilter: config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PreScore: config.PluginSet{Enabled: []config.Plugin{
+			wantPlugins: &v1.Plugins{
+				QueueSort:  v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PreFilter:  v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				Filter:     v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PostFilter: v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PreScore: v1.PluginSet{Enabled: []v1.Plugin{
 					{Name: testPlugin},
 					{Name: scorePlugin1},
 				}},
-				Score: config.PluginSet{Enabled: []config.Plugin{
+				Score: v1.PluginSet{Enabled: []v1.Plugin{
 					{Name: scorePlugin1, Weight: 1},
 					{Name: testPlugin, Weight: 1},
 					{Name: scoreWithNormalizePlugin1, Weight: 1},
 				}},
-				Reserve:  config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				Permit:   config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PreBind:  config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				Bind:     config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PostBind: config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
+				Reserve:  v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				Permit:   v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PreBind:  v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				Bind:     v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PostBind: v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
 			},
 		},
 		{
 			name: "Override MultiPoint plugins weights",
-			plugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			plugins: &v1.Plugins{
+				MultiPoint: v1.PluginSet{
+					Enabled: []v1.Plugin{
 						{Name: testPlugin},
 						{Name: scorePlugin1},
 					},
 				},
-				Score: config.PluginSet{
-					Enabled: []config.Plugin{
+				Score: v1.PluginSet{
+					Enabled: []v1.Plugin{
 						{Name: scorePlugin1, Weight: 5},
 						{Name: testPlugin, Weight: 3},
 					},
 				},
 			},
-			wantPlugins: &config.Plugins{
-				QueueSort:  config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PreFilter:  config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				Filter:     config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PostFilter: config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PreScore: config.PluginSet{Enabled: []config.Plugin{
+			wantPlugins: &v1.Plugins{
+				QueueSort:  v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PreFilter:  v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				Filter:     v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PostFilter: v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PreScore: v1.PluginSet{Enabled: []v1.Plugin{
 					{Name: testPlugin},
 					{Name: scorePlugin1},
 				}},
-				Score: config.PluginSet{Enabled: []config.Plugin{
+				Score: v1.PluginSet{Enabled: []v1.Plugin{
 					{Name: scorePlugin1, Weight: 5},
 					{Name: testPlugin, Weight: 3},
 				}},
-				Reserve:  config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				Permit:   config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PreBind:  config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				Bind:     config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
-				PostBind: config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin}}},
+				Reserve:  v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				Permit:   v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PreBind:  v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				Bind:     v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
+				PostBind: v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin}}},
 			},
 		},
 		{
 			name: "disable and enable MultiPoint plugins with '*'",
-			plugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			plugins: &v1.Plugins{
+				MultiPoint: v1.PluginSet{
+					Enabled: []v1.Plugin{
 						{Name: queueSortPlugin},
 						{Name: bindPlugin},
 						{Name: scorePlugin1},
 					},
-					Disabled: []config.Plugin{
+					Disabled: []v1.Plugin{
 						{Name: "*"},
 					},
 				},
 			},
-			wantPlugins: &config.Plugins{
-				QueueSort: config.PluginSet{Enabled: []config.Plugin{{Name: queueSortPlugin}}},
-				PreScore: config.PluginSet{Enabled: []config.Plugin{
+			wantPlugins: &v1.Plugins{
+				QueueSort: v1.PluginSet{Enabled: []v1.Plugin{{Name: queueSortPlugin}}},
+				PreScore: v1.PluginSet{Enabled: []v1.Plugin{
 					{Name: scorePlugin1},
 				}},
-				Score: config.PluginSet{Enabled: []config.Plugin{
+				Score: v1.PluginSet{Enabled: []v1.Plugin{
 					{Name: scorePlugin1, Weight: 1},
 				}},
-				Bind: config.PluginSet{Enabled: []config.Plugin{{Name: bindPlugin}}},
+				Bind: v1.PluginSet{Enabled: []v1.Plugin{{Name: bindPlugin}}},
 			},
 		},
 		{
 			name: "disable and enable MultiPoint plugin by name",
-			plugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			plugins: &v1.Plugins{
+				MultiPoint: v1.PluginSet{
+					Enabled: []v1.Plugin{
 						{Name: bindPlugin},
 						{Name: queueSortPlugin},
 						{Name: scorePlugin1},
 					},
-					Disabled: []config.Plugin{
+					Disabled: []v1.Plugin{
 						{Name: scorePlugin1},
 					},
 				},
 			},
-			wantPlugins: &config.Plugins{
-				QueueSort: config.PluginSet{Enabled: []config.Plugin{{Name: queueSortPlugin}}},
-				PreScore: config.PluginSet{Enabled: []config.Plugin{
+			wantPlugins: &v1.Plugins{
+				QueueSort: v1.PluginSet{Enabled: []v1.Plugin{{Name: queueSortPlugin}}},
+				PreScore: v1.PluginSet{Enabled: []v1.Plugin{
 					{Name: scorePlugin1},
 				}},
-				Score: config.PluginSet{Enabled: []config.Plugin{
+				Score: v1.PluginSet{Enabled: []v1.Plugin{
 					{Name: scorePlugin1, Weight: 1},
 				}},
-				Bind: config.PluginSet{Enabled: []config.Plugin{{Name: bindPlugin}}},
+				Bind: v1.PluginSet{Enabled: []v1.Plugin{{Name: bindPlugin}}},
 			},
 		},
 		{
 			name: "Expect 'already registered' error",
-			plugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			plugins: &v1.Plugins{
+				MultiPoint: v1.PluginSet{
+					Enabled: []v1.Plugin{
 						{Name: testPlugin},
 						{Name: testPlugin},
 					},
@@ -801,7 +801,7 @@ func TestNewFrameworkMultiPointExpansion(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			stopCh := make(chan struct{})
 			defer close(stopCh)
-			fw, err := NewFramework(registry, &config.KubeSchedulerProfile{Plugins: tc.plugins}, stopCh)
+			fw, err := NewFramework(registry, &v1.SchedulerProfile{Plugins: tc.plugins}, stopCh)
 			if err != nil {
 				if tc.wantErr == "" || !strings.Contains(err.Error(), tc.wantErr) {
 					t.Fatalf("Unexpected error, got %v, expect: %s", err, tc.wantErr)
@@ -842,7 +842,7 @@ func (*fakeFoodPlugin) EventsToRegister() []framework.ClusterEvent {
 	return []framework.ClusterEvent{
 		{Resource: framework.Dguest, ActionType: framework.All},
 		{Resource: framework.Food, ActionType: framework.Delete},
-		{Resource: framework.CSIFood, ActionType: framework.Update | framework.Delete},
+		//{Resource: framework.CSIFood, ActionType: framework.Update | framework.Delete},
 	}
 }
 
@@ -885,9 +885,9 @@ func TestNewFrameworkFillEventToPluginMap(t *testing.T) {
 			name:    "no-op plugin",
 			plugins: []framework.Plugin{&fakeNoopPlugin{}},
 			want: map[framework.ClusterEvent]sets.String{
-				{Resource: framework.Dguest, ActionType: framework.All}:                sets.NewString("fakeNoop", bindPlugin, queueSortPlugin),
-				{Resource: framework.Food, ActionType: framework.All}:                  sets.NewString("fakeNoop", bindPlugin, queueSortPlugin),
-				{Resource: framework.CSIFood, ActionType: framework.All}:               sets.NewString("fakeNoop", bindPlugin, queueSortPlugin),
+				{Resource: framework.Dguest, ActionType: framework.All}: sets.NewString("fakeNoop", bindPlugin, queueSortPlugin),
+				{Resource: framework.Food, ActionType: framework.All}:   sets.NewString("fakeNoop", bindPlugin, queueSortPlugin),
+				//{Resource: framework.CSIFood, ActionType: framework.All}:               sets.NewString("fakeNoop", bindPlugin, queueSortPlugin),
 				{Resource: framework.PersistentVolume, ActionType: framework.All}:      sets.NewString("fakeNoop", bindPlugin, queueSortPlugin),
 				{Resource: framework.PersistentVolumeClaim, ActionType: framework.All}: sets.NewString("fakeNoop", bindPlugin, queueSortPlugin),
 				{Resource: framework.StorageClass, ActionType: framework.All}:          sets.NewString("fakeNoop", bindPlugin, queueSortPlugin),
@@ -897,14 +897,14 @@ func TestNewFrameworkFillEventToPluginMap(t *testing.T) {
 			name:    "food plugin",
 			plugins: []framework.Plugin{&fakeFoodPlugin{}},
 			want: map[framework.ClusterEvent]sets.String{
-				{Resource: framework.Dguest, ActionType: framework.All}:                        sets.NewString("fakeFood", bindPlugin, queueSortPlugin),
-				{Resource: framework.Food, ActionType: framework.Delete}:                       sets.NewString("fakeFood"),
-				{Resource: framework.Food, ActionType: framework.All}:                          sets.NewString(bindPlugin, queueSortPlugin),
-				{Resource: framework.CSIFood, ActionType: framework.Update | framework.Delete}: sets.NewString("fakeFood"),
-				{Resource: framework.CSIFood, ActionType: framework.All}:                       sets.NewString(bindPlugin, queueSortPlugin),
-				{Resource: framework.PersistentVolume, ActionType: framework.All}:              sets.NewString(bindPlugin, queueSortPlugin),
-				{Resource: framework.PersistentVolumeClaim, ActionType: framework.All}:         sets.NewString(bindPlugin, queueSortPlugin),
-				{Resource: framework.StorageClass, ActionType: framework.All}:                  sets.NewString(bindPlugin, queueSortPlugin),
+				{Resource: framework.Dguest, ActionType: framework.All}:  sets.NewString("fakeFood", bindPlugin, queueSortPlugin),
+				{Resource: framework.Food, ActionType: framework.Delete}: sets.NewString("fakeFood"),
+				{Resource: framework.Food, ActionType: framework.All}:    sets.NewString(bindPlugin, queueSortPlugin),
+				//{Resource: framework.CSIFood, ActionType: framework.Update | framework.Delete}: sets.NewString("fakeFood"),
+				//{Resource: framework.CSIFood, ActionType: framework.All}:                       sets.NewString(bindPlugin, queueSortPlugin),
+				{Resource: framework.PersistentVolume, ActionType: framework.All}:      sets.NewString(bindPlugin, queueSortPlugin),
+				{Resource: framework.PersistentVolumeClaim, ActionType: framework.All}: sets.NewString(bindPlugin, queueSortPlugin),
+				{Resource: framework.StorageClass, ActionType: framework.All}:          sets.NewString(bindPlugin, queueSortPlugin),
 			},
 		},
 		{
@@ -916,34 +916,34 @@ func TestNewFrameworkFillEventToPluginMap(t *testing.T) {
 				{Resource: framework.Food, ActionType: framework.All}:                     sets.NewString(bindPlugin, queueSortPlugin),
 				{Resource: framework.PersistentVolumeClaim, ActionType: framework.Delete}: sets.NewString("fakeDguest"),
 				{Resource: framework.PersistentVolumeClaim, ActionType: framework.All}:    sets.NewString(bindPlugin, queueSortPlugin),
-				{Resource: framework.CSIFood, ActionType: framework.All}:                  sets.NewString(bindPlugin, queueSortPlugin),
-				{Resource: framework.PersistentVolume, ActionType: framework.All}:         sets.NewString(bindPlugin, queueSortPlugin),
-				{Resource: framework.StorageClass, ActionType: framework.All}:             sets.NewString(bindPlugin, queueSortPlugin),
+				//{Resource: framework.CSIFood, ActionType: framework.All}:                  sets.NewString(bindPlugin, queueSortPlugin),
+				{Resource: framework.PersistentVolume, ActionType: framework.All}: sets.NewString(bindPlugin, queueSortPlugin),
+				{Resource: framework.StorageClass, ActionType: framework.All}:     sets.NewString(bindPlugin, queueSortPlugin),
 			},
 		},
 		{
 			name:    "food and dguest plugin",
 			plugins: []framework.Plugin{&fakeFoodPlugin{}, &fakeDguestPlugin{}},
 			want: map[framework.ClusterEvent]sets.String{
-				{Resource: framework.Food, ActionType: framework.Delete}:                       sets.NewString("fakeFood"),
-				{Resource: framework.Food, ActionType: framework.Add | framework.Delete}:       sets.NewString("fakeDguest"),
-				{Resource: framework.Dguest, ActionType: framework.All}:                        sets.NewString("fakeFood", "fakeDguest", bindPlugin, queueSortPlugin),
-				{Resource: framework.CSIFood, ActionType: framework.Update | framework.Delete}: sets.NewString("fakeFood"),
-				{Resource: framework.PersistentVolumeClaim, ActionType: framework.Delete}:      sets.NewString("fakeDguest"),
-				{Resource: framework.Food, ActionType: framework.All}:                          sets.NewString(bindPlugin, queueSortPlugin),
-				{Resource: framework.CSIFood, ActionType: framework.All}:                       sets.NewString(bindPlugin, queueSortPlugin),
-				{Resource: framework.PersistentVolume, ActionType: framework.All}:              sets.NewString(bindPlugin, queueSortPlugin),
-				{Resource: framework.PersistentVolumeClaim, ActionType: framework.All}:         sets.NewString(bindPlugin, queueSortPlugin),
-				{Resource: framework.StorageClass, ActionType: framework.All}:                  sets.NewString(bindPlugin, queueSortPlugin),
+				{Resource: framework.Food, ActionType: framework.Delete}:                 sets.NewString("fakeFood"),
+				{Resource: framework.Food, ActionType: framework.Add | framework.Delete}: sets.NewString("fakeDguest"),
+				{Resource: framework.Dguest, ActionType: framework.All}:                  sets.NewString("fakeFood", "fakeDguest", bindPlugin, queueSortPlugin),
+				//{Resource: framework.CSIFood, ActionType: framework.Update | framework.Delete}: sets.NewString("fakeFood"),
+				{Resource: framework.PersistentVolumeClaim, ActionType: framework.Delete}: sets.NewString("fakeDguest"),
+				{Resource: framework.Food, ActionType: framework.All}:                     sets.NewString(bindPlugin, queueSortPlugin),
+				//{Resource: framework.CSIFood, ActionType: framework.All}:                       sets.NewString(bindPlugin, queueSortPlugin),
+				{Resource: framework.PersistentVolume, ActionType: framework.All}:      sets.NewString(bindPlugin, queueSortPlugin),
+				{Resource: framework.PersistentVolumeClaim, ActionType: framework.All}: sets.NewString(bindPlugin, queueSortPlugin),
+				{Resource: framework.StorageClass, ActionType: framework.All}:          sets.NewString(bindPlugin, queueSortPlugin),
 			},
 		},
 		{
 			name:    "no-op runtime plugin",
 			plugins: []framework.Plugin{&fakeNoopRuntimePlugin{}},
 			want: map[framework.ClusterEvent]sets.String{
-				{Resource: framework.Dguest, ActionType: framework.All}:                sets.NewString(bindPlugin, queueSortPlugin),
-				{Resource: framework.Food, ActionType: framework.All}:                  sets.NewString(bindPlugin, queueSortPlugin),
-				{Resource: framework.CSIFood, ActionType: framework.All}:               sets.NewString(bindPlugin, queueSortPlugin),
+				{Resource: framework.Dguest, ActionType: framework.All}: sets.NewString(bindPlugin, queueSortPlugin),
+				{Resource: framework.Food, ActionType: framework.All}:   sets.NewString(bindPlugin, queueSortPlugin),
+				//{Resource: framework.CSIFood, ActionType: framework.All}:               sets.NewString(bindPlugin, queueSortPlugin),
 				{Resource: framework.PersistentVolume, ActionType: framework.All}:      sets.NewString(bindPlugin, queueSortPlugin),
 				{Resource: framework.PersistentVolumeClaim, ActionType: framework.All}: sets.NewString(bindPlugin, queueSortPlugin),
 				{Resource: framework.StorageClass, ActionType: framework.All}:          sets.NewString(bindPlugin, queueSortPlugin),
@@ -953,7 +953,7 @@ func TestNewFrameworkFillEventToPluginMap(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			registry := Registry{}
-			cfgPls := &config.Plugins{}
+			cfgPls := &v1.Plugins{}
 			for _, pl := range tt.plugins {
 				tmpPl := pl
 				if err := registry.Register(pl.Name(), func(_ runtime.Object, _ framework.Handle) (framework.Plugin, error) {
@@ -961,11 +961,11 @@ func TestNewFrameworkFillEventToPluginMap(t *testing.T) {
 				}); err != nil {
 					t.Fatalf("fail to register filter plugin (%s)", pl.Name())
 				}
-				cfgPls.Filter.Enabled = append(cfgPls.Filter.Enabled, config.Plugin{Name: pl.Name()})
+				cfgPls.Filter.Enabled = append(cfgPls.Filter.Enabled, v1.Plugin{Name: pl.Name()})
 			}
 
 			got := make(map[framework.ClusterEvent]sets.String)
-			profile := config.KubeSchedulerProfile{Plugins: cfgPls}
+			profile := v1.SchedulerProfile{Plugins: cfgPls}
 			stopCh := make(chan struct{})
 			defer close(stopCh)
 			_, err := newFrameworkWithQueueSortAndBind(registry, profile, stopCh, WithClusterEventMap(got))
@@ -983,8 +983,8 @@ func TestRunScorePlugins(t *testing.T) {
 	tests := []struct {
 		name          string
 		registry      Registry
-		plugins       *config.Plugins
-		pluginConfigs []config.PluginConfig
+		plugins       *v1.Plugins
+		pluginConfigs []v1.PluginConfig
 		want          framework.PluginToFoodScores
 		// If err is true, we expect RunScorePlugin to fail.
 		err bool
@@ -997,7 +997,7 @@ func TestRunScorePlugins(t *testing.T) {
 		{
 			name:    "single Score plugin",
 			plugins: buildScoreConfigDefaultWeights(scorePlugin1),
-			pluginConfigs: []config.PluginConfig{
+			pluginConfigs: []v1.PluginConfig{
 				{
 					Name: scorePlugin1,
 					Args: &runtime.Unknown{
@@ -1014,7 +1014,7 @@ func TestRunScorePlugins(t *testing.T) {
 			name: "single ScoreWithNormalize plugin",
 			// registry: registry,
 			plugins: buildScoreConfigDefaultWeights(scoreWithNormalizePlugin1),
-			pluginConfigs: []config.PluginConfig{
+			pluginConfigs: []v1.PluginConfig{
 				{
 					Name: scoreWithNormalizePlugin1,
 					Args: &runtime.Unknown{
@@ -1030,7 +1030,7 @@ func TestRunScorePlugins(t *testing.T) {
 		{
 			name:    "2 Score plugins, 2 NormalizeScore plugins",
 			plugins: buildScoreConfigDefaultWeights(scorePlugin1, scoreWithNormalizePlugin1, scoreWithNormalizePlugin2),
-			pluginConfigs: []config.PluginConfig{
+			pluginConfigs: []v1.PluginConfig{
 				{
 					Name: scorePlugin1,
 					Args: &runtime.Unknown{
@@ -1061,7 +1061,7 @@ func TestRunScorePlugins(t *testing.T) {
 		},
 		{
 			name: "score fails",
-			pluginConfigs: []config.PluginConfig{
+			pluginConfigs: []v1.PluginConfig{
 				{
 					Name: scoreWithNormalizePlugin1,
 					Args: &runtime.Unknown{
@@ -1074,7 +1074,7 @@ func TestRunScorePlugins(t *testing.T) {
 		},
 		{
 			name: "normalize fails",
-			pluginConfigs: []config.PluginConfig{
+			pluginConfigs: []v1.PluginConfig{
 				{
 					Name: scoreWithNormalizePlugin1,
 					Args: &runtime.Unknown{
@@ -1088,7 +1088,7 @@ func TestRunScorePlugins(t *testing.T) {
 		{
 			name:    "Score plugin return score greater than MaxFoodScore",
 			plugins: buildScoreConfigDefaultWeights(scorePlugin1),
-			pluginConfigs: []config.PluginConfig{
+			pluginConfigs: []v1.PluginConfig{
 				{
 					Name: scorePlugin1,
 					Args: &runtime.Unknown{
@@ -1101,7 +1101,7 @@ func TestRunScorePlugins(t *testing.T) {
 		{
 			name:    "Score plugin return score less than MinFoodScore",
 			plugins: buildScoreConfigDefaultWeights(scorePlugin1),
-			pluginConfigs: []config.PluginConfig{
+			pluginConfigs: []v1.PluginConfig{
 				{
 					Name: scorePlugin1,
 					Args: &runtime.Unknown{
@@ -1114,7 +1114,7 @@ func TestRunScorePlugins(t *testing.T) {
 		{
 			name:    "ScoreWithNormalize plugin return score greater than MaxFoodScore",
 			plugins: buildScoreConfigDefaultWeights(scoreWithNormalizePlugin1),
-			pluginConfigs: []config.PluginConfig{
+			pluginConfigs: []v1.PluginConfig{
 				{
 					Name: scoreWithNormalizePlugin1,
 					Args: &runtime.Unknown{
@@ -1127,7 +1127,7 @@ func TestRunScorePlugins(t *testing.T) {
 		{
 			name:    "ScoreWithNormalize plugin return score less than MinFoodScore",
 			plugins: buildScoreConfigDefaultWeights(scoreWithNormalizePlugin1),
-			pluginConfigs: []config.PluginConfig{
+			pluginConfigs: []v1.PluginConfig{
 				{
 					Name: scoreWithNormalizePlugin1,
 					Args: &runtime.Unknown{
@@ -1139,19 +1139,19 @@ func TestRunScorePlugins(t *testing.T) {
 		},
 		{
 			name: "single Score plugin with MultiPointExpansion",
-			plugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			plugins: &v1.Plugins{
+				MultiPoint: v1.PluginSet{
+					Enabled: []v1.Plugin{
 						{Name: scorePlugin1},
 					},
 				},
-				Score: config.PluginSet{
-					Enabled: []config.Plugin{
+				Score: v1.PluginSet{
+					Enabled: []v1.Plugin{
 						{Name: scorePlugin1, Weight: 3},
 					},
 				},
 			},
-			pluginConfigs: []config.PluginConfig{
+			pluginConfigs: []v1.PluginConfig{
 				{
 					Name: scorePlugin1,
 					Args: &runtime.Unknown{
@@ -1169,7 +1169,7 @@ func TestRunScorePlugins(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Inject the results via Args in PluginConfig.
-			profile := config.KubeSchedulerProfile{
+			profile := v1.SchedulerProfile{
 				Plugins:      tt.plugins,
 				PluginConfig: tt.pluginConfigs,
 			}
@@ -1211,9 +1211,9 @@ func TestPreFilterPlugins(t *testing.T) {
 		func(_ runtime.Object, fh framework.Handle) (framework.Plugin, error) {
 			return preFilter2, nil
 		})
-	plugins := &config.Plugins{PreFilter: config.PluginSet{Enabled: []config.Plugin{{Name: preFilterWithExtensionsPluginName}, {Name: preFilterPluginName}}}}
+	plugins := &v1.Plugins{PreFilter: v1.PluginSet{Enabled: []v1.Plugin{{Name: preFilterWithExtensionsPluginName}, {Name: preFilterPluginName}}}}
 	t.Run("TestPreFilterPlugin", func(t *testing.T) {
-		profile := config.KubeSchedulerProfile{Plugins: plugins}
+		profile := v1.SchedulerProfile{Plugins: plugins}
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
@@ -1391,7 +1391,7 @@ func TestFilterPlugins(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			registry := Registry{}
-			cfgPls := &config.Plugins{}
+			cfgPls := &v1.Plugins{}
 			for _, pl := range tt.plugins {
 				// register all plugins
 				tmpPl := pl
@@ -1404,9 +1404,9 @@ func TestFilterPlugins(t *testing.T) {
 				// append plugins to filter pluginset
 				cfgPls.Filter.Enabled = append(
 					cfgPls.Filter.Enabled,
-					config.Plugin{Name: pl.name})
+					v1.Plugin{Name: pl.name})
 			}
-			profile := config.KubeSchedulerProfile{Plugins: cfgPls}
+			profile := v1.SchedulerProfile{Plugins: cfgPls}
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			f, err := newFrameworkWithQueueSortAndBind(registry, profile, ctx.Done())
@@ -1474,7 +1474,7 @@ func TestPostFilterPlugins(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			registry := Registry{}
-			cfgPls := &config.Plugins{}
+			cfgPls := &v1.Plugins{}
 			for _, pl := range tt.plugins {
 				// register all plugins
 				tmpPl := pl
@@ -1487,10 +1487,10 @@ func TestPostFilterPlugins(t *testing.T) {
 				// append plugins to filter pluginset
 				cfgPls.PostFilter.Enabled = append(
 					cfgPls.PostFilter.Enabled,
-					config.Plugin{Name: pl.name},
+					v1.Plugin{Name: pl.name},
 				)
 			}
-			profile := config.KubeSchedulerProfile{Plugins: cfgPls}
+			profile := v1.SchedulerProfile{Plugins: cfgPls}
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			f, err := newFrameworkWithQueueSortAndBind(registry, profile, ctx.Done())
@@ -1606,7 +1606,7 @@ func TestFilterPluginsWithNominatedDguests(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			registry := Registry{}
-			cfgPls := &config.Plugins{}
+			cfgPls := &v1.Plugins{}
 
 			if tt.preFilterPlugin != nil {
 				if err := registry.Register(tt.preFilterPlugin.name,
@@ -1617,7 +1617,7 @@ func TestFilterPluginsWithNominatedDguests(t *testing.T) {
 				}
 				cfgPls.PreFilter.Enabled = append(
 					cfgPls.PreFilter.Enabled,
-					config.Plugin{Name: tt.preFilterPlugin.name},
+					v1.Plugin{Name: tt.preFilterPlugin.name},
 				)
 			}
 			if tt.filterPlugin != nil {
@@ -1629,7 +1629,7 @@ func TestFilterPluginsWithNominatedDguests(t *testing.T) {
 				}
 				cfgPls.Filter.Enabled = append(
 					cfgPls.Filter.Enabled,
-					config.Plugin{Name: tt.filterPlugin.name},
+					v1.Plugin{Name: tt.filterPlugin.name},
 				)
 			}
 
@@ -1639,7 +1639,7 @@ func TestFilterPluginsWithNominatedDguests(t *testing.T) {
 					framework.NewDguestInfo(tt.nominatedDguest),
 					&framework.NominatingInfo{NominatingMode: framework.ModeOverride, NominatedFoodName: foodName})
 			}
-			profile := config.KubeSchedulerProfile{Plugins: cfgPls}
+			profile := v1.SchedulerProfile{Plugins: cfgPls}
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			f, err := newFrameworkWithQueueSortAndBind(registry, profile, ctx.Done(), WithDguestNominator(dguestNominator))
@@ -1781,7 +1781,7 @@ func TestPreBindPlugins(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			registry := Registry{}
-			configPlugins := &config.Plugins{}
+			configPlugins := &v1.Plugins{}
 
 			for _, pl := range tt.plugins {
 				tmpPl := pl
@@ -1793,10 +1793,10 @@ func TestPreBindPlugins(t *testing.T) {
 
 				configPlugins.PreBind.Enabled = append(
 					configPlugins.PreBind.Enabled,
-					config.Plugin{Name: pl.name},
+					v1.Plugin{Name: pl.name},
 				)
 			}
-			profile := config.KubeSchedulerProfile{Plugins: configPlugins}
+			profile := v1.SchedulerProfile{Plugins: configPlugins}
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			f, err := newFrameworkWithQueueSortAndBind(registry, profile, ctx.Done())
@@ -1939,7 +1939,7 @@ func TestReservePlugins(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			registry := Registry{}
-			configPlugins := &config.Plugins{}
+			configPlugins := &v1.Plugins{}
 
 			for _, pl := range tt.plugins {
 				tmpPl := pl
@@ -1951,10 +1951,10 @@ func TestReservePlugins(t *testing.T) {
 
 				configPlugins.Reserve.Enabled = append(
 					configPlugins.Reserve.Enabled,
-					config.Plugin{Name: pl.name},
+					v1.Plugin{Name: pl.name},
 				)
 			}
-			profile := config.KubeSchedulerProfile{Plugins: configPlugins}
+			profile := v1.SchedulerProfile{Plugins: configPlugins}
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			f, err := newFrameworkWithQueueSortAndBind(registry, profile, ctx.Done())
@@ -2065,7 +2065,7 @@ func TestPermitPlugins(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			registry := Registry{}
-			configPlugins := &config.Plugins{}
+			configPlugins := &v1.Plugins{}
 
 			for _, pl := range tt.plugins {
 				tmpPl := pl
@@ -2077,10 +2077,10 @@ func TestPermitPlugins(t *testing.T) {
 
 				configPlugins.Permit.Enabled = append(
 					configPlugins.Permit.Enabled,
-					config.Plugin{Name: pl.name},
+					v1.Plugin{Name: pl.name},
 				)
 			}
-			profile := config.KubeSchedulerProfile{Plugins: configPlugins}
+			profile := v1.SchedulerProfile{Plugins: configPlugins}
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			f, err := newFrameworkWithQueueSortAndBind(registry, profile, ctx.Done())
@@ -2240,8 +2240,8 @@ func TestRecordingMetrics(t *testing.T) {
 				func(_ runtime.Object, fh framework.Handle) (framework.Plugin, error) {
 					return plugin, nil
 				})
-			pluginSet := config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin, Weight: 1}}}
-			plugins := &config.Plugins{
+			pluginSet := v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin, Weight: 1}}}
+			plugins := &v1.Plugins{
 				Score:     pluginSet,
 				PreFilter: pluginSet,
 				Filter:    pluginSet,
@@ -2255,7 +2255,7 @@ func TestRecordingMetrics(t *testing.T) {
 
 			stopCh := make(chan struct{})
 			recorder := newMetricsRecorder(100, time.Nanosecond, stopCh)
-			profile := config.KubeSchedulerProfile{
+			profile := v1.SchedulerProfile{
 				SchedulerName: testProfileName,
 				Plugins:       plugins,
 			}
@@ -2352,7 +2352,7 @@ func TestRunBindPlugins(t *testing.T) {
 			metrics.FrameworkExtensionPointDuration.Reset()
 			metrics.PluginExecutionDuration.Reset()
 
-			pluginSet := config.PluginSet{}
+			pluginSet := v1.PluginSet{}
 			r := make(Registry)
 			for i, inj := range tt.injects {
 				name := fmt.Sprintf("bind-%d", i)
@@ -2361,12 +2361,12 @@ func TestRunBindPlugins(t *testing.T) {
 					func(_ runtime.Object, fh framework.Handle) (framework.Plugin, error) {
 						return plugin, nil
 					})
-				pluginSet.Enabled = append(pluginSet.Enabled, config.Plugin{Name: name})
+				pluginSet.Enabled = append(pluginSet.Enabled, v1.Plugin{Name: name})
 			}
-			plugins := &config.Plugins{Bind: pluginSet}
+			plugins := &v1.Plugins{Bind: pluginSet}
 			stopCh := make(chan struct{})
 			recorder := newMetricsRecorder(100, time.Nanosecond, stopCh)
-			profile := config.KubeSchedulerProfile{
+			profile := v1.SchedulerProfile{
 				SchedulerName: testProfileName,
 				Plugins:       plugins,
 			}
@@ -2421,10 +2421,10 @@ func TestPermitWaitDurationMetric(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			plugins := &config.Plugins{
-				Permit: config.PluginSet{Enabled: []config.Plugin{{Name: testPlugin, Weight: 1}}},
+			plugins := &v1.Plugins{
+				Permit: v1.PluginSet{Enabled: []v1.Plugin{{Name: testPlugin, Weight: 1}}},
 			}
-			profile := config.KubeSchedulerProfile{Plugins: plugins}
+			profile := v1.SchedulerProfile{Plugins: plugins}
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			f, err := newFrameworkWithQueueSortAndBind(r, profile, ctx.Done())
@@ -2477,10 +2477,10 @@ func TestWaitOnPermit(t *testing.T) {
 				func(_ runtime.Object, fh framework.Handle) (framework.Plugin, error) {
 					return testPermitPlugin, nil
 				})
-			plugins := &config.Plugins{
-				Permit: config.PluginSet{Enabled: []config.Plugin{{Name: permitPlugin, Weight: 1}}},
+			plugins := &v1.Plugins{
+				Permit: v1.PluginSet{Enabled: []v1.Plugin{{Name: permitPlugin, Weight: 1}}},
 			}
-			profile := config.KubeSchedulerProfile{Plugins: plugins}
+			profile := v1.SchedulerProfile{Plugins: plugins}
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			f, err := newFrameworkWithQueueSortAndBind(r, profile, ctx.Done())
@@ -2507,33 +2507,33 @@ func TestWaitOnPermit(t *testing.T) {
 func TestListPlugins(t *testing.T) {
 	tests := []struct {
 		name    string
-		plugins *config.Plugins
-		want    *config.Plugins
+		plugins *v1.Plugins
+		want    *v1.Plugins
 	}{
 		{
 			name:    "Add empty plugin",
-			plugins: &config.Plugins{},
-			want: &config.Plugins{
-				QueueSort: config.PluginSet{Enabled: []config.Plugin{{Name: queueSortPlugin}}},
-				Bind:      config.PluginSet{Enabled: []config.Plugin{{Name: bindPlugin}}},
+			plugins: &v1.Plugins{},
+			want: &v1.Plugins{
+				QueueSort: v1.PluginSet{Enabled: []v1.Plugin{{Name: queueSortPlugin}}},
+				Bind:      v1.PluginSet{Enabled: []v1.Plugin{{Name: bindPlugin}}},
 			},
 		},
 		{
 			name: "Add multiple plugins",
-			plugins: &config.Plugins{
-				Score: config.PluginSet{Enabled: []config.Plugin{{Name: scorePlugin1, Weight: 3}, {Name: scoreWithNormalizePlugin1}}},
+			plugins: &v1.Plugins{
+				Score: v1.PluginSet{Enabled: []v1.Plugin{{Name: scorePlugin1, Weight: 3}, {Name: scoreWithNormalizePlugin1}}},
 			},
-			want: &config.Plugins{
-				QueueSort: config.PluginSet{Enabled: []config.Plugin{{Name: queueSortPlugin}}},
-				Bind:      config.PluginSet{Enabled: []config.Plugin{{Name: bindPlugin}}},
-				Score:     config.PluginSet{Enabled: []config.Plugin{{Name: scorePlugin1, Weight: 3}, {Name: scoreWithNormalizePlugin1, Weight: 1}}},
+			want: &v1.Plugins{
+				QueueSort: v1.PluginSet{Enabled: []v1.Plugin{{Name: queueSortPlugin}}},
+				Bind:      v1.PluginSet{Enabled: []v1.Plugin{{Name: bindPlugin}}},
+				Score:     v1.PluginSet{Enabled: []v1.Plugin{{Name: scorePlugin1, Weight: 3}, {Name: scoreWithNormalizePlugin1, Weight: 1}}},
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			profile := config.KubeSchedulerProfile{Plugins: tt.plugins}
+			profile := v1.SchedulerProfile{Plugins: tt.plugins}
 			stopCh := make(chan struct{})
 			defer close(stopCh)
 			f, err := newFrameworkWithQueueSortAndBind(registry, profile, stopCh)
@@ -2548,16 +2548,16 @@ func TestListPlugins(t *testing.T) {
 	}
 }
 
-func buildScoreConfigDefaultWeights(ps ...string) *config.Plugins {
+func buildScoreConfigDefaultWeights(ps ...string) *v1.Plugins {
 	return buildScoreConfigWithWeights(defaultWeights, ps...)
 }
 
-func buildScoreConfigWithWeights(weights map[string]int32, ps ...string) *config.Plugins {
-	var plugins []config.Plugin
+func buildScoreConfigWithWeights(weights map[string]int32, ps ...string) *v1.Plugins {
+	var plugins []v1.Plugin
 	for _, p := range ps {
-		plugins = append(plugins, config.Plugin{Name: p, Weight: weights[p]})
+		plugins = append(plugins, v1.Plugin{Name: p, Weight: weights[p]})
 	}
-	return &config.Plugins{Score: config.PluginSet{Enabled: plugins}}
+	return &v1.Plugins{Score: v1.PluginSet{Enabled: plugins}}
 }
 
 type injectedResult struct {

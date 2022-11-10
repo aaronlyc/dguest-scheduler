@@ -66,18 +66,18 @@ var (
 	StorageClassAdd = framework.ClusterEvent{Resource: framework.StorageClass, ActionType: framework.Add, Label: "StorageClassAdd"}
 	// StorageClassUpdate is the event when a StorageClass is updated in the cluster.
 	StorageClassUpdate = framework.ClusterEvent{Resource: framework.StorageClass, ActionType: framework.Update, Label: "StorageClassUpdate"}
-	// CSIFoodAdd is the event when a CSI food is added in the cluster.
-	CSIFoodAdd = framework.ClusterEvent{Resource: framework.CSIFood, ActionType: framework.Add, Label: "CSIFoodAdd"}
-	// CSIFoodUpdate is the event when a CSI food is updated in the cluster.
-	CSIFoodUpdate = framework.ClusterEvent{Resource: framework.CSIFood, ActionType: framework.Update, Label: "CSIFoodUpdate"}
-	// CSIDriverAdd is the event when a CSI driver is added in the cluster.
-	CSIDriverAdd = framework.ClusterEvent{Resource: framework.CSIDriver, ActionType: framework.Add, Label: "CSIDriverAdd"}
-	// CSIDriverUpdate is the event when a CSI driver is updated in the cluster.
-	CSIDriverUpdate = framework.ClusterEvent{Resource: framework.CSIDriver, ActionType: framework.Update, Label: "CSIDriverUpdate"}
-	// CSIStorageCapacityAdd is the event when a CSI storage capacity is added in the cluster.
-	CSIStorageCapacityAdd = framework.ClusterEvent{Resource: framework.CSIStorageCapacity, ActionType: framework.Add, Label: "CSIStorageCapacityAdd"}
-	// CSIStorageCapacityUpdate is the event when a CSI storage capacity is updated in the cluster.
-	CSIStorageCapacityUpdate = framework.ClusterEvent{Resource: framework.CSIStorageCapacity, ActionType: framework.Update, Label: "CSIStorageCapacityUpdate"}
+	//// CSIFoodAdd is the event when a CSI food is added in the cluster.
+	//CSIFoodAdd = framework.ClusterEvent{Resource: framework.CSIFood, ActionType: framework.Add, Label: "CSIFoodAdd"}
+	//// CSIFoodUpdate is the event when a CSI food is updated in the cluster.
+	//CSIFoodUpdate = framework.ClusterEvent{Resource: framework.CSIFood, ActionType: framework.Update, Label: "CSIFoodUpdate"}
+	//// CSIDriverAdd is the event when a CSI driver is added in the cluster.
+	//CSIDriverAdd = framework.ClusterEvent{Resource: framework.CSIDriver, ActionType: framework.Add, Label: "CSIDriverAdd"}
+	//// CSIDriverUpdate is the event when a CSI driver is updated in the cluster.
+	//CSIDriverUpdate = framework.ClusterEvent{Resource: framework.CSIDriver, ActionType: framework.Update, Label: "CSIDriverUpdate"}
+	//// CSIStorageCapacityAdd is the event when a CSI storage capacity is added in the cluster.
+	//CSIStorageCapacityAdd = framework.ClusterEvent{Resource: framework.CSIStorageCapacity, ActionType: framework.Add, Label: "CSIStorageCapacityAdd"}
+	//// CSIStorageCapacityUpdate is the event when a CSI storage capacity is updated in the cluster.
+	//CSIStorageCapacityUpdate = framework.ClusterEvent{Resource: framework.CSIStorageCapacity, ActionType: framework.Update, Label: "CSIStorageCapacityUpdate"}
 	// ServiceAdd is the event when a service is added in the cluster.
 	ServiceAdd = framework.ClusterEvent{Resource: framework.Service, ActionType: framework.Add, Label: "ServiceAdd"}
 	// ServiceUpdate is the event when a service is updated in the cluster.

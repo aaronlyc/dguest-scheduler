@@ -1,4 +1,4 @@
-package config
+package v1
 
 import (
 	v1 "k8s.io/api/core/v1"
@@ -160,7 +160,7 @@ type FoodAffinityArgs struct {
 	// match).
 	// When AddedAffinity is used, some Dguests with affinity requirements that match
 	// a specific Food (such as Daemonset Dguests) might remain unschedulable.
-	AddedAffinity *v1alpha1.FoodAffinity
+	//AddedAffinity *v1alpha1.FoodAffinity
 }
 
 // ScoringStrategyType the type of scoring strategy used in FoodResourcesFit plugin.

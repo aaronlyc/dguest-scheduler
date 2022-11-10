@@ -2,14 +2,12 @@ package scheduler
 
 import (
 	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
-	"dguest-scheduler/pkg/scheduler/framework"
+	"dguest-scheduler/pkg/generated/informers/externalversions"
 	"dguest-scheduler/pkg/scheduler/internal/queue"
 	"dguest-scheduler/pkg/scheduler/profile"
 	"fmt"
 	storagev1 "k8s.io/api/storage/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/dynamic/dynamicinformer"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 	"reflect"
@@ -224,9 +222,7 @@ func responsibleForDguest(dguest *v1alpha1.Dguest, profiles profile.Map) bool {
 // to add event handlers for various informers.
 func addAllEventHandlers(
 	sched *Scheduler,
-	informerFactory informers.SharedInformerFactory,
-	dynInformerFactory dynamicinformer.DynamicSharedInformerFactory,
-	gvkMap map[framework.GVK]framework.ActionType,
+	informerFactory externalversions.SharedInformerFactory,
 ) {
 	// scheduled dguest cache
 	//informerFactory.Core().V1().Dguests().Informer().AddEventHandler(

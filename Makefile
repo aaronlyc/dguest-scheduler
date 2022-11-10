@@ -86,6 +86,10 @@ help: ## Display this help.
 
 ##@ Development
 
+.PHONY: generate-config-api
+generate-config-api: ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+	sh ./hack/update-codegen-config-api.sh
+
 .PHONY: generate
 generate: ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	sh ./hack/update-codegen.sh

@@ -20,9 +20,9 @@ import (
 	"os"
 	"os/signal"
 
+	listersv1alpha1 "dguest-scheduler/pkg/generated/listers/scheduler/v1alpha1"
 	internalcache "dguest-scheduler/pkg/scheduler/internal/cache"
 	internalqueue "dguest-scheduler/pkg/scheduler/internal/queue"
-	corelisters "k8s.io/client-go/listers/core/v1"
 )
 
 // CacheDebugger provides ways to check and write cache information for debugging.
@@ -33,8 +33,8 @@ type CacheDebugger struct {
 
 // New creates a CacheDebugger.
 func New(
-	foodLister corelisters.FoodLister,
-	dguestLister corelisters.DguestLister,
+	foodLister listersv1alpha1.FoodLister,
+	dguestLister listersv1alpha1.DguestLister,
 	cache internalcache.Cache,
 	dguestQueue internalqueue.SchedulingQueue,
 ) *CacheDebugger {

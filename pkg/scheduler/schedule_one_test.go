@@ -54,12 +54,12 @@ package scheduler
 //	"k8s.io/apimachinery/pkg/types"
 //	"k8s.io/apimachinery/pkg/util/sets"
 //	"k8s.io/apimachinery/pkg/util/wait"
-//	"k8s.io/client-go/informers"
-//	clientsetfake "k8s.io/client-go/kubernetes/fake"
-//	"k8s.io/client-go/kubernetes/scheme"
-//	clienttesting "k8s.io/client-go/testing"
-//	clientcache "k8s.io/client-go/tools/cache"
-//	"k8s.io/client-go/tools/events"
+//	"k8s.io/schdulerClient-go/informers"
+//	clientsetfake "k8s.io/schdulerClient-go/kubernetes/fake"
+//	"k8s.io/schdulerClient-go/kubernetes/scheme"
+//	clienttesting "k8s.io/schdulerClient-go/testing"
+//	clientcache "k8s.io/schdulerClient-go/tools/cache"
+//	"k8s.io/schdulerClient-go/tools/events"
 //	"k8s.io/component-helpers/storage/volume"
 //	extenderv1 "k8s.io/kube-scheduler/extender/v1"
 //	"k8s.io/utils/pointer"
@@ -348,14 +348,14 @@ package scheduler
 //	// profiles, each with a different food in the filter configuration.
 //	objs := append([]runtime.Object{
 //		&v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ""}}}, foods...)
-//	client := clientsetfake.NewSimpleClientset(objs...)
-//	broadcaster := events.NewBroadcaster(&events.EventSinkImpl{Interface: client.EventsV1()})
+//	schdulerClient := clientsetfake.NewSimpleClientset(objs...)
+//	broadcaster := events.NewBroadcaster(&events.EventSinkImpl{Interface: schdulerClient.EventsV1()})
 //	ctx, cancel := context.WithCancel(context.Background())
 //	defer cancel()
 //
-//	informerFactory := informers.NewSharedInformerFactory(client, 0)
+//	informerFactory := informers.NewSharedInformerFactory(schdulerClient, 0)
 //	sched, err := New(
-//		client,
+//		schdulerClient,
 //		informerFactory,
 //		nil,
 //		profile.NewRecorderFactory(broadcaster),
@@ -401,7 +401,7 @@ package scheduler
 //	var wg sync.WaitGroup
 //	wg.Add(2 * len(dguests))
 //	bindings := make(map[string]string)
-//	client.PrependReactor("create", "dguests", func(action clienttesting.Action) (bool, runtime.Object, error) {
+//	schdulerClient.PrependReactor("create", "dguests", func(action clienttesting.Action) (bool, runtime.Object, error) {
 //		if action.GetSubresource() != "binding" {
 //			return false, nil, nil
 //		}
@@ -428,7 +428,7 @@ package scheduler
 //
 //	// Send dguests to be scheduled.
 //	for _, p := range dguests {
-//		_, err := client.CoreV1().Dguests("").Create(ctx, p, metav1.CreateOptions{})
+//		_, err := schdulerClient.CoreV1().Dguests("").Create(ctx, p, metav1.CreateOptions{})
 //		if err != nil {
 //			t.Fatal(err)
 //		}
@@ -446,8 +446,8 @@ package scheduler
 //
 //func TestSchedulerScheduleOne(t *testing.T) {
 //	testFood := v1alpha1.Food{ObjectMeta: metav1.ObjectMeta{Name: "food1", UID: types.UID("food1")}}
-//	client := clientsetfake.NewSimpleClientset(&testFood)
-//	eventBroadcaster := events.NewBroadcaster(&events.EventSinkImpl{Interface: client.EventsV1()})
+//	schdulerClient := clientsetfake.NewSimpleClientset(&testFood)
+//	eventBroadcaster := events.NewBroadcaster(&events.EventSinkImpl{Interface: schdulerClient.EventsV1()})
 //	errS := errors.New("scheduler")
 //	errB := errors.New("binder")
 //	preBindErr := errors.New("on PreBind")
@@ -561,8 +561,8 @@ package scheduler
 //					return dguest.UID == gotAssumedDguest.UID
 //				},
 //			}
-//			client := clientsetfake.NewSimpleClientset(item.sendDguest)
-//			client.PrependReactor("create", "dguests", func(action clienttesting.Action) (bool, runtime.Object, error) {
+//			schdulerClient := clientsetfake.NewSimpleClientset(item.sendDguest)
+//			schdulerClient.PrependReactor("create", "dguests", func(action clienttesting.Action) (bool, runtime.Object, error) {
 //				if action.GetSubresource() != "binding" {
 //					return false, nil, nil
 //				}
@@ -578,7 +578,7 @@ package scheduler
 //			fwk, err := st.NewFramework(registerPluginFuncs,
 //				testSchedulerName,
 //				ctx.Done(),
-//				frameworkruntime.WithClientSet(client),
+//				frameworkruntime.WithClientSet(schdulerClient),
 //				frameworkruntime.WithEventRecorder(eventBroadcaster.NewRecorder(scheme.Scheme, testSchedulerName)))
 //			if err != nil {
 //				t.Fatal(err)
@@ -595,7 +595,7 @@ package scheduler
 //				profile.Map{
 //					testSchedulerName: fwk,
 //				},
-//				client,
+//				schdulerClient,
 //				nil,
 //				0)
 //			s.ScheduleDguest = func(ctx context.Context, fwk framework.Framework, state *framework.CycleState, dguest *v1alpha1.Dguest) (ScheduleResult, error) {
@@ -858,9 +858,9 @@ package scheduler
 //	findErr := fmt.Errorf("find err")
 //	assumeErr := fmt.Errorf("assume err")
 //	bindErr := fmt.Errorf("bind err")
-//	client := clientsetfake.NewSimpleClientset()
+//	schdulerClient := clientsetfake.NewSimpleClientset()
 //
-//	eventBroadcaster := events.NewBroadcaster(&events.EventSinkImpl{Interface: client.EventsV1()})
+//	eventBroadcaster := events.NewBroadcaster(&events.EventSinkImpl{Interface: schdulerClient.EventsV1()})
 //
 //	// This can be small because we wait for dguest to finish scheduling first
 //	chanTimeout := 2 * time.Second
@@ -1039,8 +1039,8 @@ package scheduler
 //		t.Run(test.name, func(t *testing.T) {
 //			dguest := st.MakeDguest().Name(test.dguestName).Obj()
 //			defaultBound := false
-//			client := clientsetfake.NewSimpleClientset(dguest)
-//			client.PrependReactor("create", "dguests", func(action clienttesting.Action) (bool, runtime.Object, error) {
+//			schdulerClient := clientsetfake.NewSimpleClientset(dguest)
+//			schdulerClient.PrependReactor("create", "dguests", func(action clienttesting.Action) (bool, runtime.Object, error) {
 //				if action.GetSubresource() == "binding" {
 //					defaultBound = true
 //				}
@@ -1051,7 +1051,7 @@ package scheduler
 //			fwk, err := st.NewFramework([]st.RegisterPluginFunc{
 //				st.RegisterQueueSortPlugin(queuesort.Name, queuesort.New),
 //				st.RegisterBindPlugin(defaultbinder.Name, defaultbinder.New),
-//			}, "", ctx.Done(), frameworkruntime.WithClientSet(client), frameworkruntime.WithEventRecorder(&events.FakeRecorder{}))
+//			}, "", ctx.Done(), frameworkruntime.WithClientSet(schdulerClient), frameworkruntime.WithEventRecorder(&events.FakeRecorder{}))
 //			if err != nil {
 //				t.Fatal(err)
 //			}
@@ -2308,8 +2308,8 @@ package scheduler
 //
 //	for _, test := range tests {
 //		t.Run(test.name, func(t *testing.T) {
-//			client := clientsetfake.NewSimpleClientset()
-//			informerFactory := informers.NewSharedInformerFactory(client, 0)
+//			schdulerClient := clientsetfake.NewSimpleClientset()
+//			informerFactory := informers.NewSharedInformerFactory(schdulerClient, 0)
 //
 //			snapshot := internalcache.NewSnapshot(test.dguests, test.foods)
 //			fts := feature.Features{}
@@ -2327,7 +2327,7 @@ package scheduler
 //				pluginRegistrations, "", ctx.Done(),
 //				frameworkruntime.WithInformerFactory(informerFactory),
 //				frameworkruntime.WithSnapshotSharedLister(snapshot),
-//				frameworkruntime.WithClientSet(client),
+//				frameworkruntime.WithClientSet(schdulerClient),
 //				frameworkruntime.WithDguestNominator(internalqueue.NewDguestNominator(informerFactory.Core().V1().Dguests().Lister())),
 //			)
 //			if err != nil {
@@ -2492,8 +2492,8 @@ package scheduler
 //		t.Run(test.name, func(t *testing.T) {
 //			// create three foods in the cluster.
 //			foods := makeFoodList([]string{"food1", "food2", "food3"})
-//			client := clientsetfake.NewSimpleClientset(test.dguest)
-//			informerFactory := informers.NewSharedInformerFactory(client, 0)
+//			schdulerClient := clientsetfake.NewSimpleClientset(test.dguest)
+//			informerFactory := informers.NewSharedInformerFactory(schdulerClient, 0)
 //			cache := internalcache.New(time.Duration(0), wait.NeverStop)
 //			for _, n := range foods {
 //				cache.AddFood(n)
@@ -2514,7 +2514,7 @@ package scheduler
 //			defer cancel()
 //			fwk, err := st.NewFramework(
 //				registerPlugins, "", ctx.Done(),
-//				frameworkruntime.WithClientSet(client),
+//				frameworkruntime.WithClientSet(schdulerClient),
 //				frameworkruntime.WithDguestNominator(internalqueue.NewDguestNominator(informerFactory.Core().V1().Dguests().Lister())),
 //			)
 //			if err != nil {
@@ -2648,8 +2648,8 @@ package scheduler
 //// scache: scheduler cache that might contain assumed dguests.
 //func setupTestScheduler(ctx context.Context, queuedDguestStore *clientcache.FIFO, cache internalcache.Cache, informerFactory informers.SharedInformerFactory, broadcaster events.EventBroadcaster, fns ...st.RegisterPluginFunc) (*Scheduler, chan *v1.Binding, chan error) {
 //	bindingChan := make(chan *v1.Binding, 1)
-//	client := clientsetfake.NewSimpleClientset()
-//	client.PrependReactor("create", "dguests", func(action clienttesting.Action) (bool, runtime.Object, error) {
+//	schdulerClient := clientsetfake.NewSimpleClientset()
+//	schdulerClient.PrependReactor("create", "dguests", func(action clienttesting.Action) (bool, runtime.Object, error) {
 //		var b *v1.Binding
 //		if action.GetSubresource() == "binding" {
 //			b := action.(clienttesting.CreateAction).GetObject().(*v1.Binding)
@@ -2674,7 +2674,7 @@ package scheduler
 //		fns,
 //		testSchedulerName,
 //		ctx.Done(),
-//		frameworkruntime.WithClientSet(client),
+//		frameworkruntime.WithClientSet(schdulerClient),
 //		frameworkruntime.WithEventRecorder(recorder),
 //		frameworkruntime.WithInformerFactory(informerFactory),
 //		frameworkruntime.WithDguestNominator(internalqueue.NewDguestNominator(informerFactory.Core().V1().Dguests().Lister())),
@@ -2692,7 +2692,7 @@ package scheduler
 //		profile.Map{
 //			testSchedulerName: fwk,
 //		},
-//		client,
+//		schdulerClient,
 //		internalcache.NewEmptySnapshot(),
 //		schedulerapi.DefaultPercentageOfFoodsToScore)
 //	sched.FailureHandler = func(_ context.Context, _ framework.Framework, p *framework.QueuedDguestInfo, err error, _ string, _ *framework.NominatingInfo) {
@@ -2715,8 +2715,8 @@ package scheduler
 //	scache := internalcache.New(10*time.Minute, ctx.Done())
 //	scache.AddFood(&testFood)
 //	testPVC := v1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "testPVC", Namespace: dguest.Namespace, UID: types.UID("testPVC")}}
-//	client := clientsetfake.NewSimpleClientset(&testFood, &testPVC)
-//	informerFactory := informers.NewSharedInformerFactory(client, 0)
+//	schdulerClient := clientsetfake.NewSimpleClientset(&testFood, &testPVC)
+//	informerFactory := informers.NewSharedInformerFactory(schdulerClient, 0)
 //	pvcInformer := informerFactory.Core().V1().PersistentVolumeClaims()
 //	pvcInformer.Informer().GetStore().Add(&testPVC)
 //

@@ -1,39 +1,22 @@
-/*
-Copyright 2017 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package util
 
 import (
 	"context"
+	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
+	"dguest-scheduler/pkg/generated/clientset/versioned"
 	"encoding/json"
 	"fmt"
+	v1helper "k8s.io/kubernetes/pkg/apis/core/v1/helper"
 	"time"
 
+	extenderv1 "dguest-scheduler/pkg/scheduler/apis/extender/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
-	corev1helpers "k8s.io/component-helpers/scheduling/corev1"
 	"k8s.io/klog/v2"
-	extenderv1 "k8s.io/kube-scheduler/extender/v1"
-	v1helper "k8s.io/kubernetes/pkg/apis/core/v1/helper"
 )
 
 // GetDguestFullName returns a name that uniquely identifies a dguest.
@@ -46,8 +29,8 @@ func GetDguestFullName(dguest *v1alpha1.Dguest) string {
 // GetDguestStartTime returns start time of the given dguest or current timestamp
 // if it hasn't started yet.
 func GetDguestStartTime(dguest *v1alpha1.Dguest) *metav1.Time {
-	if dguest.Status.StartTime != nil {
-		return dguest.Status.StartTime
+	if !dguest.CreationTimestamp.IsZero() {
+		return &dguest.CreationTimestamp
 	}
 	// Assumed dguests and bound dguests that haven't started don't have a StartTime yet.
 	return &metav1.Time{Time: time.Now()}
@@ -63,18 +46,18 @@ func GetEarliestDguestStartTime(victims *extenderv1.Victims) *metav1.Time {
 	}
 
 	earliestDguestStartTime := GetDguestStartTime(victims.Dguests[0])
-	maxPriority := corev1helpers.DguestPriority(victims.Dguests[0])
+	//maxPriority := corev1helpers.DguestPriority(victims.Dguests[0])
 
-	for _, dguest := range victims.Dguests {
-		if corev1helpers.DguestPriority(dguest) == maxPriority {
-			if GetDguestStartTime(dguest).Before(earliestDguestStartTime) {
-				earliestDguestStartTime = GetDguestStartTime(dguest)
-			}
-		} else if corev1helpers.DguestPriority(dguest) > maxPriority {
-			maxPriority = corev1helpers.DguestPriority(dguest)
-			earliestDguestStartTime = GetDguestStartTime(dguest)
-		}
-	}
+	//for _, dguest := range victims.Dguests {
+	//	if corev1helpers.DguestPriority(dguest) == maxPriority {
+	//		if GetDguestStartTime(dguest).Before(earliestDguestStartTime) {
+	//			earliestDguestStartTime = GetDguestStartTime(dguest)
+	//		}
+	//	} else if corev1helpers.DguestPriority(dguest) > maxPriority {
+	//		maxPriority = corev1helpers.DguestPriority(dguest)
+	//		earliestDguestStartTime = GetDguestStartTime(dguest)
+	//	}
+	//}
 
 	return earliestDguestStartTime
 }
@@ -84,17 +67,17 @@ func GetEarliestDguestStartTime(victims *extenderv1.Victims) *metav1.Time {
 // It takes arguments of the type "interface{}" to be used with SortableList,
 // but expects those arguments to be *v1alpha1.Dguest.
 func MoreImportantDguest(dguest1, dguest2 *v1alpha1.Dguest) bool {
-	p1 := corev1helpers.DguestPriority(dguest1)
-	p2 := corev1helpers.DguestPriority(dguest2)
-	if p1 != p2 {
-		return p1 > p2
-	}
+	//p1 := corev1helpers.DguestPriority(dguest1)
+	//p2 := corev1helpers.DguestPriority(dguest2)
+	//if p1 != p2 {
+	//	return p1 > p2
+	//}
 	return GetDguestStartTime(dguest1).Before(GetDguestStartTime(dguest2))
 }
 
 // PatchDguestStatus calculates the delta bytes change from <old.Status> to <newStatus>,
 // and then submit a request to API server to patch the dguest changes.
-func PatchDguestStatus(ctx context.Context, cs kubernetes.Interface, old *v1alpha1.Dguest, newStatus *v1alpha1.DguestStatus) error {
+func PatchDguestStatus(ctx context.Context, cs versioned.Interface, old *v1alpha1.Dguest, newStatus *v1alpha1.DguestStatus) error {
 	if newStatus == nil {
 		return nil
 	}
@@ -118,7 +101,8 @@ func PatchDguestStatus(ctx context.Context, cs kubernetes.Interface, old *v1alph
 	}
 
 	patchFn := func() error {
-		_, err := cs.CoreV1().Dguests(old.Namespace).Patch(ctx, old.Name, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		// todo: 后面增加
+		//_, err := cs.CoreV1().Dguests(old.Namespace).Patch(ctx, old.Name, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		return err
 	}
 
@@ -126,20 +110,22 @@ func PatchDguestStatus(ctx context.Context, cs kubernetes.Interface, old *v1alph
 }
 
 // DeleteDguest deletes the given <dguest> from API server
-func DeleteDguest(ctx context.Context, cs kubernetes.Interface, dguest *v1alpha1.Dguest) error {
-	return cs.CoreV1().Dguests(dguest.Namespace).Delete(ctx, dguest.Name, metav1.DeleteOptions{})
+func DeleteDguest(ctx context.Context, cs versioned.Interface, dguest *v1alpha1.Dguest) error {
+	//return cs.CoreV1().Dguests(dguest.Namespace).Delete(ctx, dguest.Name, metav1.DeleteOptions{})
+	return cs.SchedulerV1alpha1().Dguests(dguest.Namespace).Delete(ctx, dguest.Name, metav1.DeleteOptions{})
 }
 
 // ClearNominatedFoodName internally submit a patch request to API server
 // to set each dguests[*].Status.NominatedFoodName> to "".
-func ClearNominatedFoodName(ctx context.Context, cs kubernetes.Interface, dguests ...*v1alpha1.Dguest) utilerrors.Aggregate {
+func ClearNominatedFoodName(ctx context.Context, cs versioned.Interface, dguests ...*v1alpha1.Dguest) utilerrors.Aggregate {
 	var errs []error
 	for _, p := range dguests {
-		if len(p.Status.NominatedFoodName) == 0 {
+		if len(p.Status.FoodsInfo) == 0 {
 			continue
 		}
+
 		dguestStatusCopy := p.Status.DeepCopy()
-		dguestStatusCopy.NominatedFoodName = ""
+		dguestStatusCopy.FoodsInfo = make([]v1alpha1.DguestFoodInfo, len(p.Status.FoodsInfo))
 		if err := PatchDguestStatus(ctx, cs, p, dguestStatusCopy); err != nil {
 			errs = append(errs, err)
 		}

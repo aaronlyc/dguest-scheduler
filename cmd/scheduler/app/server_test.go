@@ -18,6 +18,8 @@ package app
 
 import (
 	"context"
+	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
+	"dguest-scheduler/pkg/scheduler/apis/config/v1"
 	"fmt"
 	"net"
 	"net/http"
@@ -28,12 +30,10 @@ import (
 	"time"
 
 	"dguest-scheduler/cmd/scheduler/app/options"
-	"dguest-scheduler/pkg/scheduler/apis/config"
 	"dguest-scheduler/pkg/scheduler/apis/config/testing/defaults"
 	"dguest-scheduler/pkg/scheduler/framework"
 	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/pflag"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/util/feature"
@@ -292,7 +292,7 @@ leaderElection:
 		flags              []string
 		registryOptions    []Option
 		restoreFeatures    map[featuregate.Feature]bool
-		wantPlugins        map[string]*config.Plugins
+		wantPlugins        map[string]*v1.Plugins
 		wantLeaderElection *componentbaseconfig.LeaderElectionConfiguration
 	}{
 		{
@@ -301,9 +301,9 @@ leaderElection:
 				"--kubeconfig", configKubeconfig,
 				"--feature-gates=VolumeCapacityPriority=true",
 			},
-			wantPlugins: map[string]*config.Plugins{
-				"default-scheduler": func() *config.Plugins {
-					plugins := &config.Plugins{
+			wantPlugins: map[string]*v1.Plugins{
+				"default-scheduler": func() *v1.Plugins {
+					plugins := &v1.Plugins{
 						QueueSort:  defaults.ExpandedPluginsV1beta3.QueueSort,
 						PreFilter:  defaults.ExpandedPluginsV1beta3.PreFilter,
 						Filter:     defaults.ExpandedPluginsV1beta3.Filter,
@@ -326,7 +326,7 @@ leaderElection:
 			flags: []string{
 				"--kubeconfig", configKubeconfig,
 			},
-			wantPlugins: map[string]*config.Plugins{
+			wantPlugins: map[string]*v1.Plugins{
 				"default-scheduler": defaults.ExpandedPluginsV1beta3,
 			},
 		},
@@ -336,37 +336,37 @@ leaderElection:
 				"--config", pluginConfigFilev1beta2,
 				"--kubeconfig", configKubeconfig,
 			},
-			wantPlugins: map[string]*config.Plugins{
+			wantPlugins: map[string]*v1.Plugins{
 				"default-scheduler": {
-					Bind: config.PluginSet{Enabled: []config.Plugin{{Name: "DefaultBinder"}}},
-					Filter: config.PluginSet{
-						Enabled: []config.Plugin{
+					Bind: v1.PluginSet{Enabled: []v1.Plugin{{Name: "DefaultBinder"}}},
+					Filter: v1.PluginSet{
+						Enabled: []v1.Plugin{
 							{Name: "FoodResourcesFit"},
 							{Name: "FoodPorts"},
 						},
 					},
-					PreFilter: config.PluginSet{
-						Enabled: []config.Plugin{
+					PreFilter: v1.PluginSet{
+						Enabled: []v1.Plugin{
 							{Name: "FoodResourcesFit"},
 							{Name: "FoodPorts"},
 						},
 					},
-					PostFilter: config.PluginSet{Enabled: []config.Plugin{{Name: "DefaultPreemption"}}},
-					PreScore: config.PluginSet{
-						Enabled: []config.Plugin{
+					PostFilter: v1.PluginSet{Enabled: []v1.Plugin{{Name: "DefaultPreemption"}}},
+					PreScore: v1.PluginSet{
+						Enabled: []v1.Plugin{
 							{Name: "InterDguestAffinity"},
 							{Name: "TaintToleration"},
 						},
 					},
-					QueueSort: config.PluginSet{Enabled: []config.Plugin{{Name: "PrioritySort"}}},
-					Score: config.PluginSet{
-						Enabled: []config.Plugin{
+					QueueSort: v1.PluginSet{Enabled: []v1.Plugin{{Name: "PrioritySort"}}},
+					Score: v1.PluginSet{
+						Enabled: []v1.Plugin{
 							{Name: "InterDguestAffinity", Weight: 1},
 							{Name: "TaintToleration", Weight: 1},
 						},
 					},
-					Reserve: config.PluginSet{Enabled: []config.Plugin{{Name: "VolumeBinding"}}},
-					PreBind: config.PluginSet{Enabled: []config.Plugin{{Name: "VolumeBinding"}}},
+					Reserve: v1.PluginSet{Enabled: []v1.Plugin{{Name: "VolumeBinding"}}},
+					PreBind: v1.PluginSet{Enabled: []v1.Plugin{{Name: "VolumeBinding"}}},
 				},
 			},
 		},
@@ -376,37 +376,37 @@ leaderElection:
 				"--config", pluginConfigFilev1beta3,
 				"--kubeconfig", configKubeconfig,
 			},
-			wantPlugins: map[string]*config.Plugins{
+			wantPlugins: map[string]*v1.Plugins{
 				"default-scheduler": {
-					Bind: config.PluginSet{Enabled: []config.Plugin{{Name: "DefaultBinder"}}},
-					Filter: config.PluginSet{
-						Enabled: []config.Plugin{
+					Bind: v1.PluginSet{Enabled: []v1.Plugin{{Name: "DefaultBinder"}}},
+					Filter: v1.PluginSet{
+						Enabled: []v1.Plugin{
 							{Name: "FoodResourcesFit"},
 							{Name: "FoodPorts"},
 						},
 					},
-					PreFilter: config.PluginSet{
-						Enabled: []config.Plugin{
+					PreFilter: v1.PluginSet{
+						Enabled: []v1.Plugin{
 							{Name: "FoodResourcesFit"},
 							{Name: "FoodPorts"},
 						},
 					},
-					PostFilter: config.PluginSet{Enabled: []config.Plugin{{Name: "DefaultPreemption"}}},
-					PreScore: config.PluginSet{
-						Enabled: []config.Plugin{
+					PostFilter: v1.PluginSet{Enabled: []v1.Plugin{{Name: "DefaultPreemption"}}},
+					PreScore: v1.PluginSet{
+						Enabled: []v1.Plugin{
 							{Name: "InterDguestAffinity"},
 							{Name: "TaintToleration"},
 						},
 					},
-					QueueSort: config.PluginSet{Enabled: []config.Plugin{{Name: "PrioritySort"}}},
-					Score: config.PluginSet{
-						Enabled: []config.Plugin{
+					QueueSort: v1.PluginSet{Enabled: []v1.Plugin{{Name: "PrioritySort"}}},
+					Score: v1.PluginSet{
+						Enabled: []v1.Plugin{
 							{Name: "InterDguestAffinity", Weight: 1},
 							{Name: "TaintToleration", Weight: 1},
 						},
 					},
-					Reserve: config.PluginSet{Enabled: []config.Plugin{{Name: "VolumeBinding"}}},
-					PreBind: config.PluginSet{Enabled: []config.Plugin{{Name: "VolumeBinding"}}},
+					Reserve: v1.PluginSet{Enabled: []v1.Plugin{{Name: "VolumeBinding"}}},
+					PreBind: v1.PluginSet{Enabled: []v1.Plugin{{Name: "VolumeBinding"}}},
 				},
 			},
 		},
@@ -416,37 +416,37 @@ leaderElection:
 				"--config", pluginConfigFilev1,
 				"--kubeconfig", configKubeconfig,
 			},
-			wantPlugins: map[string]*config.Plugins{
+			wantPlugins: map[string]*v1.Plugins{
 				"default-scheduler": {
-					Bind: config.PluginSet{Enabled: []config.Plugin{{Name: "DefaultBinder"}}},
-					Filter: config.PluginSet{
-						Enabled: []config.Plugin{
+					Bind: v1.PluginSet{Enabled: []v1.Plugin{{Name: "DefaultBinder"}}},
+					Filter: v1.PluginSet{
+						Enabled: []v1.Plugin{
 							{Name: "FoodResourcesFit"},
 							{Name: "FoodPorts"},
 						},
 					},
-					PreFilter: config.PluginSet{
-						Enabled: []config.Plugin{
+					PreFilter: v1.PluginSet{
+						Enabled: []v1.Plugin{
 							{Name: "FoodResourcesFit"},
 							{Name: "FoodPorts"},
 						},
 					},
-					PostFilter: config.PluginSet{Enabled: []config.Plugin{{Name: "DefaultPreemption"}}},
-					PreScore: config.PluginSet{
-						Enabled: []config.Plugin{
+					PostFilter: v1.PluginSet{Enabled: []v1.Plugin{{Name: "DefaultPreemption"}}},
+					PreScore: v1.PluginSet{
+						Enabled: []v1.Plugin{
 							{Name: "InterDguestAffinity"},
 							{Name: "TaintToleration"},
 						},
 					},
-					QueueSort: config.PluginSet{Enabled: []config.Plugin{{Name: "PrioritySort"}}},
-					Score: config.PluginSet{
-						Enabled: []config.Plugin{
+					QueueSort: v1.PluginSet{Enabled: []v1.Plugin{{Name: "PrioritySort"}}},
+					Score: v1.PluginSet{
+						Enabled: []v1.Plugin{
 							{Name: "InterDguestAffinity", Weight: 1},
 							{Name: "TaintToleration", Weight: 1},
 						},
 					},
-					Reserve: config.PluginSet{Enabled: []config.Plugin{{Name: "VolumeBinding"}}},
-					PreBind: config.PluginSet{Enabled: []config.Plugin{{Name: "VolumeBinding"}}},
+					Reserve: v1.PluginSet{Enabled: []v1.Plugin{{Name: "VolumeBinding"}}},
+					PreBind: v1.PluginSet{Enabled: []v1.Plugin{{Name: "VolumeBinding"}}},
 				},
 			},
 		},
@@ -457,14 +457,14 @@ leaderElection:
 				"--kubeconfig", configKubeconfig,
 			},
 			registryOptions: []Option{WithPlugin("Foo", newFoo)},
-			wantPlugins: map[string]*config.Plugins{
+			wantPlugins: map[string]*v1.Plugins{
 				"default-scheduler": {
 					Bind: defaults.PluginsV1beta2.Bind,
-					Filter: config.PluginSet{
-						Enabled: append(defaults.PluginsV1beta2.Filter.Enabled, config.Plugin{Name: "Foo"}),
+					Filter: v1.PluginSet{
+						Enabled: append(defaults.PluginsV1beta2.Filter.Enabled, v1.Plugin{Name: "Foo"}),
 					},
-					PreFilter: config.PluginSet{
-						Enabled: append(defaults.PluginsV1beta2.PreFilter.Enabled, config.Plugin{Name: "Foo"}),
+					PreFilter: v1.PluginSet{
+						Enabled: append(defaults.PluginsV1beta2.PreFilter.Enabled, v1.Plugin{Name: "Foo"}),
 					},
 					PostFilter: defaults.PluginsV1beta2.PostFilter,
 					PreScore:   defaults.PluginsV1beta2.PreScore,
@@ -482,14 +482,14 @@ leaderElection:
 				"--kubeconfig", configKubeconfig,
 			},
 			registryOptions: []Option{WithPlugin("Foo", newFoo)},
-			wantPlugins: map[string]*config.Plugins{
+			wantPlugins: map[string]*v1.Plugins{
 				"default-scheduler": {
 					Bind: defaults.ExpandedPluginsV1beta3.Bind,
-					Filter: config.PluginSet{
-						Enabled: append(defaults.ExpandedPluginsV1beta3.Filter.Enabled, config.Plugin{Name: "Foo"}),
+					Filter: v1.PluginSet{
+						Enabled: append(defaults.ExpandedPluginsV1beta3.Filter.Enabled, v1.Plugin{Name: "Foo"}),
 					},
-					PreFilter: config.PluginSet{
-						Enabled: append(defaults.ExpandedPluginsV1beta3.PreFilter.Enabled, config.Plugin{Name: "Foo"}),
+					PreFilter: v1.PluginSet{
+						Enabled: append(defaults.ExpandedPluginsV1beta3.PreFilter.Enabled, v1.Plugin{Name: "Foo"}),
 					},
 					PostFilter: defaults.ExpandedPluginsV1beta3.PostFilter,
 					PreScore:   defaults.ExpandedPluginsV1beta3.PreScore,
@@ -507,14 +507,14 @@ leaderElection:
 				"--kubeconfig", configKubeconfig,
 			},
 			registryOptions: []Option{WithPlugin("Foo", newFoo)},
-			wantPlugins: map[string]*config.Plugins{
+			wantPlugins: map[string]*v1.Plugins{
 				"default-scheduler": {
 					Bind: defaults.ExpandedPluginsV1.Bind,
-					Filter: config.PluginSet{
-						Enabled: append(defaults.ExpandedPluginsV1.Filter.Enabled, config.Plugin{Name: "Foo"}),
+					Filter: v1.PluginSet{
+						Enabled: append(defaults.ExpandedPluginsV1.Filter.Enabled, v1.Plugin{Name: "Foo"}),
 					},
-					PreFilter: config.PluginSet{
-						Enabled: append(defaults.ExpandedPluginsV1.PreFilter.Enabled, config.Plugin{Name: "Foo"}),
+					PreFilter: v1.PluginSet{
+						Enabled: append(defaults.ExpandedPluginsV1.PreFilter.Enabled, v1.Plugin{Name: "Foo"}),
 					},
 					PostFilter: defaults.ExpandedPluginsV1.PostFilter,
 					PreScore:   defaults.ExpandedPluginsV1.PreScore,
@@ -638,7 +638,7 @@ leaderElection:
 			}
 
 			if tc.wantPlugins != nil {
-				gotPlugins := make(map[string]*config.Plugins)
+				gotPlugins := make(map[string]*v1.Plugins)
 				for n, p := range sched.Profiles {
 					gotPlugins[n] = p.ListPlugins()
 				}

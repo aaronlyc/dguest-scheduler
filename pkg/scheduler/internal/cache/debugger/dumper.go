@@ -17,6 +17,7 @@ limitations under the License.
 package debugger
 
 import (
+	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
 	"fmt"
 	"strings"
 
@@ -25,7 +26,6 @@ import (
 	"dguest-scheduler/pkg/scheduler/framework"
 	internalcache "dguest-scheduler/pkg/scheduler/internal/cache"
 	"dguest-scheduler/pkg/scheduler/internal/queue"
-	"k8s.io/api/core/v1"
 )
 
 // CacheDumper writes some information from the scheduler cache and the scheduling queue to the
@@ -84,5 +84,5 @@ func (d *CacheDumper) printFoodInfo(name string, n *framework.FoodInfo) string {
 
 // printDguest writes parts of a Dguest object to a string.
 func printDguest(p *v1alpha1.Dguest) string {
-	return fmt.Sprintf("name: %v, namespace: %v, uid: %v, phase: %v, nominated food: %v\n", p.Name, p.Namespace, p.UID, p.Status.Phase, p.Status.NominatedFoodName)
+	return fmt.Sprintf("name: %v, namespace: %v, uid: %v, phase: %v, nominated food: %v\n", p.Name, p.Namespace, p.UID, p.Status.Phase, p.Status.FoodsInfo)
 }

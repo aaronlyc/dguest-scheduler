@@ -86,7 +86,7 @@ type HTTPExtender struct {
 //	if err != nil {
 //		return nil, err
 //	}
-//	client := &http.Client{
+//	schdulerClient := &http.Client{
 //		Transport: transport,
 //		Timeout:   config.HTTPTimeout.Duration,
 //	}
@@ -101,7 +101,7 @@ type HTTPExtender struct {
 //		prioritizeVerb:   config.PrioritizeVerb,
 //		bindVerb:         config.BindVerb,
 //		weight:           config.Weight,
-//		client:           client,
+//		schdulerClient:           schdulerClient,
 //		foodCacheCapable: config.FoodCacheCapable,
 //		managedResources: managedResources,
 //		ignorable:        config.Ignorable,

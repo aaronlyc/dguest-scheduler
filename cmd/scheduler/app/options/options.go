@@ -1,23 +1,11 @@
-/*
-Copyright 2018 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package options
 
 import (
+	"dguest-scheduler/pkg/generated/clientset/versioned"
+	"dguest-scheduler/pkg/generated/informers/externalversions"
+	schedulerconfig "dguest-scheduler/pkg/scheduler/apis/config/v1"
 	"fmt"
+	"k8s.io/klog/v2"
 	"net"
 	"os"
 	"os/user"
@@ -25,16 +13,12 @@ import (
 	"time"
 
 	schedulerappconfig "dguest-scheduler/cmd/scheduler/app/config"
-	"dguest-scheduler/pkg/scheduler"
-	kubeschedulerconfig "dguest-scheduler/pkg/scheduler/apis/config"
 	"dguest-scheduler/pkg/scheduler/apis/config/validation"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	apiserveroptions "k8s.io/apiserver/pkg/server/options"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/dynamic/dynamicinformer"
 	clientset "k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -54,7 +38,7 @@ import (
 // Options has all the params needed to run a Scheduler
 type Options struct {
 	// The default values.
-	ComponentConfig *kubeschedulerconfig.SchedulerConfiguration
+	ComponentConfig *schedulerconfig.SchedulerConfiguration
 
 	SecureServing  *apiserveroptions.SecureServingOptionsWithLoopback
 	Authentication *apiserveroptions.DelegatingAuthenticationOptions
@@ -105,7 +89,7 @@ func NewOptions() *Options {
 	// Set the PairName but leave certificate directory blank to generate in-memory by default
 	o.SecureServing.ServerCert.CertDirectory = ""
 	o.SecureServing.ServerCert.PairName = "kube-scheduler"
-	o.SecureServing.BindPort = kubeschedulerconfig.DefaultKubeSchedulerPort
+	o.SecureServing.BindPort = schedulerconfig.DefaultKubeSchedulerPort
 
 	o.initFlags()
 
@@ -147,32 +131,32 @@ func (o *Options) ApplyDeprecated() {
 
 // ApplyLeaderElectionTo obtains the CLI args related with leaderelection, and override the values in `cfg`.
 // Then the `cfg` object is injected into the `options` object.
-func (o *Options) ApplyLeaderElectionTo(cfg *kubeschedulerconfig.SchedulerConfiguration) {
+func (o *Options) ApplyLeaderElectionTo(cfg *schedulerconfig.SchedulerConfiguration) {
 	if o.Flags == nil {
 		return
 	}
-	// Obtain CLI args related with leaderelection. Set them to `cfg` if specified in command line.
-	leaderelection := o.Flags.FlagSet("leader election")
-	if leaderelection.Changed("leader-elect") {
+	// Obtain CLI args related with leaderelectionFlag. Set them to `cfg` if specified in command line.
+	leaderelectionFlag := o.Flags.FlagSet("leader election")
+	if leaderelectionFlag.Changed("leader-elect") {
 		cfg.LeaderElection.LeaderElect = o.LeaderElection.LeaderElect
 	}
 
-	if leaderelection.Changed("leader-elect-lease-duration") || cfg.LeaderElection.LeaseDuration.Nanoseconds() == 0 {
+	if leaderelectionFlag.Changed("leader-elect-lease-duration") || cfg.LeaderElection.LeaseDuration.Nanoseconds() == 0 {
 		cfg.LeaderElection.LeaseDuration = o.LeaderElection.LeaseDuration
 	}
-	if leaderelection.Changed("leader-elect-renew-deadline") || cfg.LeaderElection.RenewDeadline.Nanoseconds() == 0 {
+	if leaderelectionFlag.Changed("leader-elect-renew-deadline") || cfg.LeaderElection.RenewDeadline.Nanoseconds() == 0 {
 		cfg.LeaderElection.RenewDeadline = o.LeaderElection.RenewDeadline
 	}
-	if leaderelection.Changed("leader-elect-retry-period") || cfg.LeaderElection.RetryPeriod.Nanoseconds() == 0 {
+	if leaderelectionFlag.Changed("leader-elect-retry-period") || cfg.LeaderElection.RetryPeriod.Nanoseconds() == 0 {
 		cfg.LeaderElection.RetryPeriod = o.LeaderElection.RetryPeriod
 	}
-	if leaderelection.Changed("leader-elect-resource-lock") {
+	if leaderelectionFlag.Changed("leader-elect-resource-lock") {
 		cfg.LeaderElection.ResourceLock = o.LeaderElection.ResourceLock
 	}
-	if leaderelection.Changed("leader-elect-resource-name") {
+	if leaderelectionFlag.Changed("leader-elect-resource-name") {
 		cfg.LeaderElection.ResourceName = o.LeaderElection.ResourceName
 	}
-	if leaderelection.Changed("leader-elect-resource-namespace") {
+	if leaderelectionFlag.Changed("leader-elect-resource-namespace") {
 		cfg.LeaderElection.ResourceNamespace = o.LeaderElection.ResourceNamespace
 	}
 
@@ -209,6 +193,7 @@ func (o *Options) ApplyTo(c *schedulerappconfig.Config) error {
 		// If the --config arg is not specified, honor the deprecated as well as leader election CLI args.
 		o.ApplyDeprecated()
 		o.ApplyLeaderElectionTo(o.ComponentConfig)
+		schedulerconfig.SetDefaults_KubeSchedulerConfiguration(o.ComponentConfig)
 		c.ComponentConfig = *o.ComponentConfig
 	} else {
 		cfg, err := loadConfigFromFile(o.ConfigFile)
@@ -217,6 +202,7 @@ func (o *Options) ApplyTo(c *schedulerappconfig.Config) error {
 		}
 		// If the --config arg is specified, honor the leader election CLI args only.
 		o.ApplyLeaderElectionTo(cfg)
+		schedulerconfig.SetDefaults_KubeSchedulerConfiguration(cfg)
 
 		if err := validation.ValidateKubeSchedulerConfiguration(cfg); err != nil {
 			return err
@@ -281,7 +267,7 @@ func (o *Options) Config() (*schedulerappconfig.Config, error) {
 	}
 
 	// Prepare kube clients.
-	client, eventClient, err := createClients(kubeConfig)
+	eventClient, err := createClients(kubeConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -303,11 +289,13 @@ func (o *Options) Config() (*schedulerappconfig.Config, error) {
 		}
 	}
 
-	c.Client = client
+	//c.Client = client
 	c.KubeConfig = kubeConfig
-	c.InformerFactory = scheduler.NewInformerFactory(client, 0)
-	dynClient := dynamic.NewForConfigOrDie(kubeConfig)
-	c.DynInformerFactory = dynamicinformer.NewFilteredDynamicSharedInformerFactory(dynClient, 0, corev1.NamespaceAll, nil)
+	c.SchedulerClientSet = versioned.NewForConfigOrDie(kubeConfig)
+	c.SchedulerInformerFactory = externalversions.NewSharedInformerFactory(c.SchedulerClientSet, 30*time.Second)
+	//c.InformerFactory = scheduler.NewInformerFactory(client, 0)
+	//dynClient := dynamic.NewForConfigOrDie(kubeConfig)
+	//c.DynInformerFactory = dynamicinformer.NewFilteredDynamicSharedInformerFactory(dynClient, 0, corev1.NamespaceAll, nil)
 	c.LeaderElection = leaderElectionConfig
 
 	return c, nil
@@ -380,16 +368,16 @@ func createKubeConfig(config componentbaseconfig.ClientConnectionConfiguration, 
 }
 
 // createClients creates a kube client and an event client from the given kubeConfig
-func createClients(kubeConfig *restclient.Config) (clientset.Interface, clientset.Interface, error) {
-	client, err := clientset.NewForConfig(restclient.AddUserAgent(kubeConfig, "scheduler"))
-	if err != nil {
-		return nil, nil, err
-	}
+func createClients(kubeConfig *restclient.Config) (clientset.Interface, error) {
+	//client, err := clientset.NewForConfig(restclient.AddUserAgent(kubeConfig, "scheduler"))
+	//if err != nil {
+	//	return nil, nil, err
+	//}
 
 	eventClient, err := clientset.NewForConfig(kubeConfig)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return client, eventClient, nil
+	return eventClient, nil
 }

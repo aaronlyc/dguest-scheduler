@@ -1,50 +1,28 @@
-/*
-Copyright 2014 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package scheduler
 
 import (
 	"context"
+	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
+	"dguest-scheduler/pkg/generated/clientset/versioned"
+	"dguest-scheduler/pkg/generated/informers/externalversions"
+	v12 "dguest-scheduler/pkg/scheduler/apis/config/v1"
 	"errors"
 	"fmt"
 	"time"
 
-	schedulerapi "dguest-scheduler/pkg/scheduler/apis/config"
 	"dguest-scheduler/pkg/scheduler/apis/config/scheme"
 	"dguest-scheduler/pkg/scheduler/framework"
 	"dguest-scheduler/pkg/scheduler/framework/parallelize"
 	frameworkplugins "dguest-scheduler/pkg/scheduler/framework/plugins"
-	"dguest-scheduler/pkg/scheduler/framework/plugins/foodresources"
 	frameworkruntime "dguest-scheduler/pkg/scheduler/framework/runtime"
 	internalcache "dguest-scheduler/pkg/scheduler/internal/cache"
 	cachedebugger "dguest-scheduler/pkg/scheduler/internal/cache/debugger"
 	internalqueue "dguest-scheduler/pkg/scheduler/internal/queue"
 	"dguest-scheduler/pkg/scheduler/metrics"
 	"dguest-scheduler/pkg/scheduler/profile"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/dynamic/dynamicinformer"
-	"k8s.io/client-go/informers"
-	coreinformers "k8s.io/client-go/informers/core/v1"
-	clientset "k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/klog/v2"
 	configv1 "k8s.io/kube-scheduler/config/v1"
 )
 
@@ -89,7 +67,7 @@ type Scheduler struct {
 	// Profiles are the scheduling profiles.
 	Profiles profile.Map
 
-	client clientset.Interface
+	schdulerClient versioned.Interface
 
 	foodInfoSnapshot *internalcache.Snapshot
 
@@ -107,11 +85,11 @@ type schedulerOptions struct {
 	dguestMaxInUnschedulableDguestsDuration time.Duration
 	// Contains out-of-tree plugins to be merged with the in-tree registry.
 	frameworkOutOfTreeRegistry frameworkruntime.Registry
-	profiles                   []schedulerapi.KubeSchedulerProfile
-	extenders                  []schedulerapi.Extender
-	frameworkCapturer          FrameworkCapturer
-	parallelism                int32
-	applyDefaultProfile        bool
+	profiles                   []v12.SchedulerProfile
+	//extenders                  []schedulerapi.Extender
+	frameworkCapturer   FrameworkCapturer
+	parallelism         int32
+	applyDefaultProfile bool
 }
 
 // Option configures a Scheduler
@@ -147,7 +125,7 @@ func WithKubeConfig(cfg *restclient.Config) Option {
 
 // WithProfiles sets profiles for Scheduler. By default, there is one profile
 // with the name "default-scheduler".
-func WithProfiles(p ...schedulerapi.KubeSchedulerProfile) Option {
+func WithProfiles(p ...v12.SchedulerProfile) Option {
 	return func(o *schedulerOptions) {
 		o.profiles = p
 		o.applyDefaultProfile = false
@@ -198,14 +176,14 @@ func WithDguestMaxInUnschedulableDguestsDuration(duration time.Duration) Option 
 }
 
 // WithExtenders sets extenders for the Scheduler
-func WithExtenders(e ...schedulerapi.Extender) Option {
-	return func(o *schedulerOptions) {
-		o.extenders = e
-	}
-}
+//func WithExtenders(e ...schedulerapi.Extender) Option {
+//	return func(o *schedulerOptions) {
+//		o.extenders = e
+//	}
+//}
 
 // FrameworkCapturer is used for registering a notify function in building framework.
-type FrameworkCapturer func(schedulerapi.KubeSchedulerProfile)
+type FrameworkCapturer func(v12.SchedulerProfile)
 
 // WithBuildFrameworkCapturer sets a notify function for getting buildFramework details.
 func WithBuildFrameworkCapturer(fc FrameworkCapturer) Option {
@@ -215,7 +193,7 @@ func WithBuildFrameworkCapturer(fc FrameworkCapturer) Option {
 }
 
 var defaultSchedulerOptions = schedulerOptions{
-	percentageOfFoodsToScore:                schedulerapi.DefaultPercentageOfFoodsToScore,
+	percentageOfFoodsToScore:                v12.DefaultPercentageOfFoodsToScore,
 	dguestInitialBackoffSeconds:             int64(internalqueue.DefaultDguestInitialBackoffDuration.Seconds()),
 	dguestMaxBackoffSeconds:                 int64(internalqueue.DefaultDguestMaxBackoffDuration.Seconds()),
 	dguestMaxInUnschedulableDguestsDuration: internalqueue.DefaultDguestMaxInUnschedulableDguestsDuration,
@@ -228,9 +206,8 @@ var defaultSchedulerOptions = schedulerOptions{
 }
 
 // New returns a Scheduler
-func New(client clientset.Interface,
-	informerFactory informers.SharedInformerFactory,
-	dynInformerFactory dynamicinformer.DynamicSharedInformerFactory,
+func New(schedulerClient versioned.Interface,
+	schedulerInformerFactory externalversions.SharedInformerFactory,
 	recorderFactory profile.RecorderFactory,
 	stopCh <-chan struct{},
 	opts ...Option) (*Scheduler, error) {
@@ -248,7 +225,7 @@ func New(client clientset.Interface,
 	if options.applyDefaultProfile {
 		var versionedCfg configv1.KubeSchedulerConfiguration
 		scheme.Scheme.Default(&versionedCfg)
-		cfg := schedulerapi.SchedulerConfiguration{}
+		cfg := v12.SchedulerConfiguration{}
 		if err := scheme.Scheme.Convert(&versionedCfg, &cfg, nil); err != nil {
 			return nil, err
 		}
@@ -262,13 +239,13 @@ func New(client clientset.Interface,
 
 	metrics.Register()
 
-	extenders, err := buildExtenders(options.extenders, options.profiles)
-	if err != nil {
-		return nil, fmt.Errorf("couldn't build extenders: %w", err)
-	}
+	//extenders, err := buildExtenders(options.extenders, options.profiles)
+	//if err != nil {
+	//	return nil, fmt.Errorf("couldn't build extenders: %w", err)
+	//}
 
-	dguestLister := informerFactory.Core().V1().Dguests().Lister()
-	foodLister := informerFactory.Core().V1().Foods().Lister()
+	dguestLister := schedulerInformerFactory.Scheduler().V1alpha1().Dguests().Lister()
+	foodLister := schedulerInformerFactory.Scheduler().V1alpha1().Foods().Lister()
 
 	// The nominator will be passed all the way to framework instantiation.
 	nominator := internalqueue.NewDguestNominator(dguestLister)
@@ -277,15 +254,15 @@ func New(client clientset.Interface,
 
 	profiles, err := profile.NewMap(options.profiles, registry, recorderFactory, stopCh,
 		frameworkruntime.WithComponentConfigVersion(options.componentConfigVersion),
-		frameworkruntime.WithClientSet(client),
+		frameworkruntime.WithSchedulerClientSet(schedulerClient),
 		frameworkruntime.WithKubeConfig(options.kubeConfig),
-		frameworkruntime.WithInformerFactory(informerFactory),
+		frameworkruntime.WithSchedulerInformerFactory(schedulerInformerFactory),
 		frameworkruntime.WithSnapshotSharedLister(snapshot),
 		frameworkruntime.WithDguestNominator(nominator),
 		frameworkruntime.WithCaptureProfile(frameworkruntime.CaptureProfile(options.frameworkCapturer)),
 		frameworkruntime.WithClusterEventMap(clusterEventMap),
 		frameworkruntime.WithParallelism(int(options.parallelism)),
-		frameworkruntime.WithExtenders(extenders),
+		//frameworkruntime.WithExtenders(extenders),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("initializing profiles: %v", err)
@@ -297,7 +274,7 @@ func New(client clientset.Interface,
 
 	dguestQueue := internalqueue.NewSchedulingQueue(
 		profiles[options.profiles[0].SchedulerName].QueueSortFunc(),
-		informerFactory,
+		schedulerInformerFactory,
 		internalqueue.WithDguestInitialBackoffDuration(time.Duration(options.dguestInitialBackoffSeconds)*time.Second),
 		internalqueue.WithDguestMaxBackoffDuration(time.Duration(options.dguestMaxBackoffSeconds)*time.Second),
 		internalqueue.WithDguestNominator(nominator),
@@ -313,17 +290,16 @@ func New(client clientset.Interface,
 
 	sched := newScheduler(
 		schedulerCache,
-		extenders,
 		internalqueue.MakeNextDguestFunc(dguestQueue),
 		stopEverything,
 		dguestQueue,
 		profiles,
-		client,
+		schedulerClient,
 		snapshot,
 		options.percentageOfFoodsToScore,
 	)
 
-	addAllEventHandlers(sched, informerFactory, dynInformerFactory, unionedGVKs(clusterEventMap))
+	addAllEventHandlers(sched, schedulerInformerFactory)
 
 	return sched, nil
 }
@@ -346,91 +322,90 @@ func (sched *Scheduler) Run(ctx context.Context) {
 
 // NewInformerFactory creates a SharedInformerFactory and initializes a scheduler specific
 // in-place dguestInformer.
-func NewInformerFactory(cs clientset.Interface, resyncPeriod time.Duration) informers.SharedInformerFactory {
-	informerFactory := informers.NewSharedInformerFactory(cs, resyncPeriod)
-	informerFactory.InformerFor(&v1alpha1.Dguest{}, newDguestInformer)
-	return informerFactory
-}
+//func NewInformerFactory(cs clientset.Interface, resyncPeriod time.Duration) informers.SharedInformerFactory {
+//	informerFactory := informers.NewSharedInformerFactory(cs, resyncPeriod)
+//	informerFactory.InformerFor(&v1alpha1.Dguest{}, newDguestInformer)
+//	return informerFactory
+//}
 
-func buildExtenders(extenders []schedulerapi.Extender, profiles []schedulerapi.KubeSchedulerProfile) ([]framework.Extender, error) {
-	var fExtenders []framework.Extender
-	if len(extenders) == 0 {
-		return nil, nil
-	}
-
-	var ignoredExtendedResources []string
-	var ignorableExtenders []framework.Extender
-	for i := range extenders {
-		klog.V(2).InfoS("Creating extender", "extender", extenders[i])
-		extender, err := NewHTTPExtender(&extenders[i])
-		if err != nil {
-			return nil, err
-		}
-		if !extender.IsIgnorable() {
-			fExtenders = append(fExtenders, extender)
-		} else {
-			ignorableExtenders = append(ignorableExtenders, extender)
-		}
-		for _, r := range extenders[i].ManagedResources {
-			if r.IgnoredByScheduler {
-				ignoredExtendedResources = append(ignoredExtendedResources, r.Name)
-			}
-		}
-	}
-	// place ignorable extenders to the tail of extenders
-	fExtenders = append(fExtenders, ignorableExtenders...)
-
-	// If there are any extended resources found from the Extenders, append them to the pluginConfig for each profile.
-	// This should only have an effect on ComponentConfig, where it is possible to configure Extenders and
-	// plugin args (and in which case the extender ignored resources take precedence).
-	if len(ignoredExtendedResources) == 0 {
-		return fExtenders, nil
-	}
-
-	for i := range profiles {
-		prof := &profiles[i]
-		var found = false
-		for k := range prof.PluginConfig {
-			if prof.PluginConfig[k].Name == foodresources.Name {
-				// Update the existing args
-				pc := &prof.PluginConfig[k]
-				args, ok := pc.Args.(*schedulerapi.FoodResourcesFitArgs)
-				if !ok {
-					return nil, fmt.Errorf("want args to be of type FoodResourcesFitArgs, got %T", pc.Args)
-				}
-				args.IgnoredResources = ignoredExtendedResources
-				found = true
-				break
-			}
-		}
-		if !found {
-			return nil, fmt.Errorf("can't find FoodResourcesFitArgs in plugin config")
-		}
-	}
-	return fExtenders, nil
-}
+//func buildExtenders(extenders []schedulerapi.Extender, profiles []v12.SchedulerProfile) ([]framework.Extender, error) {
+//	var fExtenders []framework.Extender
+//	if len(extenders) == 0 {
+//		return nil, nil
+//	}
+//
+//	var ignoredExtendedResources []string
+//	var ignorableExtenders []framework.Extender
+//	for i := range extenders {
+//		klog.V(2).InfoS("Creating extender", "extender", extenders[i])
+//		extender, err := NewHTTPExtender(&extenders[i])
+//		if err != nil {
+//			return nil, err
+//		}
+//		if !extender.IsIgnorable() {
+//			fExtenders = append(fExtenders, extender)
+//		} else {
+//			ignorableExtenders = append(ignorableExtenders, extender)
+//		}
+//		for _, r := range extenders[i].ManagedResources {
+//			if r.IgnoredByScheduler {
+//				ignoredExtendedResources = append(ignoredExtendedResources, r.Name)
+//			}
+//		}
+//	}
+//	// place ignorable extenders to the tail of extenders
+//	fExtenders = append(fExtenders, ignorableExtenders...)
+//
+//	// If there are any extended resources found from the Extenders, append them to the pluginConfig for each profile.
+//	// This should only have an effect on ComponentConfig, where it is possible to configure Extenders and
+//	// plugin args (and in which case the extender ignored resources take precedence).
+//	if len(ignoredExtendedResources) == 0 {
+//		return fExtenders, nil
+//	}
+//
+//	for i := range profiles {
+//		prof := &profiles[i]
+//		var found = false
+//		for k := range prof.PluginConfig {
+//			if prof.PluginConfig[k].Name == foodresources.Name {
+//				// Update the existing args
+//				pc := &prof.PluginConfig[k]
+//				args, ok := pc.Args.(*v12.FoodResourcesFitArgs)
+//				if !ok {
+//					return nil, fmt.Errorf("want args to be of type FoodResourcesFitArgs, got %T", pc.Args)
+//				}
+//				args.IgnoredResources = ignoredExtendedResources
+//				found = true
+//				break
+//			}
+//		}
+//		if !found {
+//			return nil, fmt.Errorf("can't find FoodResourcesFitArgs in plugin config")
+//		}
+//	}
+//	return fExtenders, nil
+//}
 
 type FailureHandlerFn func(ctx context.Context, fwk framework.Framework, dguestInfo *framework.QueuedDguestInfo, err error, reason string, nominatingInfo *framework.NominatingInfo)
 
 // newScheduler creates a Scheduler object.
 func newScheduler(
 	cache internalcache.Cache,
-	extenders []framework.Extender,
 	nextDguest func() *framework.QueuedDguestInfo,
 	stopEverything <-chan struct{},
 	schedulingQueue internalqueue.SchedulingQueue,
 	profiles profile.Map,
-	client clientset.Interface,
+	client versioned.Interface,
 	foodInfoSnapshot *internalcache.Snapshot,
 	percentageOfFoodsToScore int32) *Scheduler {
 	sched := Scheduler{
-		Cache:                    cache,
-		Extenders:                extenders,
+		Cache: cache,
+		//Extenders:                extenders,
 		NextDguest:               nextDguest,
 		StopEverything:           stopEverything,
 		SchedulingQueue:          schedulingQueue,
 		Profiles:                 profiles,
-		client:                   client,
+		schdulerClient:           client,
 		foodInfoSnapshot:         foodInfoSnapshot,
 		percentageOfFoodsToScore: percentageOfFoodsToScore,
 	}
@@ -453,10 +428,10 @@ func unionedGVKs(m map[framework.ClusterEvent]sets.String) map[framework.GVK]fra
 
 // newDguestInformer creates a shared index informer that returns only non-terminal dguests.
 // The DguestInformer allows indexers to be added, but note that only non-conflict indexers are allowed.
-func newDguestInformer(cs clientset.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	selector := fmt.Sprintf("status.phase!=%v,status.phase!=%v", v1alpha1.DguestSucceeded, v1alpha1.DguestFailed)
-	tweakListOptions := func(options *metav1.ListOptions) {
-		options.FieldSelector = selector
-	}
-	return coreinformers.NewFilteredDguestInformer(cs, metav1.NamespaceAll, resyncPeriod, cache.Indexers{}, tweakListOptions)
-}
+//func newDguestInformer(cs clientset.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+//	selector := fmt.Sprintf("status.phase!=%v,status.phase!=%v", v1alpha1.DguestSucceeded, v1alpha1.DguestFailed)
+//	tweakListOptions := func(options *metav1.ListOptions) {
+//		options.FieldSelector = selector
+//	}
+//	return coreinformers.NewFilteredDguestInformer(cs, metav1.NamespaceAll, resyncPeriod, cache.Indexers{}, tweakListOptions)
+//}

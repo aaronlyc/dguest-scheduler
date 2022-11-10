@@ -58,7 +58,7 @@ type DguestFoodCondition struct {
 	Status ConditionStatus `json:"status,omitempty"`
 	// Last time we probed the condition.
 	// +optional
-	LastProbeTime metav1.Time `json:"lastProbeTime,omitempty"	`
+	LastProbeTime metav1.Time `json:"lastProbeTime,omitempty"`
 	// Last time the condition transitioned from one status to another.
 	// +optional
 	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`

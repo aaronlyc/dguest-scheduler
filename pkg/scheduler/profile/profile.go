@@ -18,10 +18,10 @@ limitations under the License.
 package profile
 
 import (
+	"dguest-scheduler/pkg/scheduler/apis/config/v1"
 	"errors"
 	"fmt"
 
-	"dguest-scheduler/pkg/scheduler/apis/config"
 	"dguest-scheduler/pkg/scheduler/framework"
 	frameworkruntime "dguest-scheduler/pkg/scheduler/framework/runtime"
 	"github.com/google/go-cmp/cmp"
@@ -34,7 +34,7 @@ import (
 type RecorderFactory func(string) events.EventRecorder
 
 // newProfile builds a Profile for the given configuration.
-func newProfile(cfg config.KubeSchedulerProfile, r frameworkruntime.Registry, recorderFact RecorderFactory,
+func newProfile(cfg v1.SchedulerProfile, r frameworkruntime.Registry, recorderFact RecorderFactory,
 	stopCh <-chan struct{}, opts ...frameworkruntime.Option) (framework.Framework, error) {
 	recorder := recorderFact(cfg.SchedulerName)
 	opts = append(opts, frameworkruntime.WithEventRecorder(recorder))
@@ -45,7 +45,7 @@ func newProfile(cfg config.KubeSchedulerProfile, r frameworkruntime.Registry, re
 type Map map[string]framework.Framework
 
 // NewMap builds the frameworks given by the configuration, indexed by name.
-func NewMap(cfgs []config.KubeSchedulerProfile, r frameworkruntime.Registry, recorderFact RecorderFactory,
+func NewMap(cfgs []v1.SchedulerProfile, r frameworkruntime.Registry, recorderFact RecorderFactory,
 	stopCh <-chan struct{}, opts ...frameworkruntime.Option) (Map, error) {
 	m := make(Map)
 	v := cfgValidator{m: m}
@@ -82,7 +82,7 @@ type cfgValidator struct {
 	queueSortArgs runtime.Object
 }
 
-func (v *cfgValidator) validate(cfg config.KubeSchedulerProfile, f framework.Framework) error {
+func (v *cfgValidator) validate(cfg v1.SchedulerProfile, f framework.Framework) error {
 	if len(f.ProfileName()) == 0 {
 		return errors.New("scheduler name is needed")
 	}

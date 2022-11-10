@@ -17,22 +17,22 @@ limitations under the License.
 package debugger
 
 import (
+	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
 	"sort"
 	"strings"
 
+	listersv1alpha1 "dguest-scheduler/pkg/generated/listers/scheduler/v1alpha1"
 	"dguest-scheduler/pkg/scheduler/framework"
 	internalcache "dguest-scheduler/pkg/scheduler/internal/cache"
 	internalqueue "dguest-scheduler/pkg/scheduler/internal/queue"
-	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 )
 
 // CacheComparer is an implementation of the Scheduler's cache comparer.
 type CacheComparer struct {
-	FoodLister   corelisters.FoodLister
-	DguestLister corelisters.DguestLister
+	FoodLister   listersv1alpha1.FoodLister
+	DguestLister listersv1alpha1.DguestLister
 	Cache        internalcache.Cache
 	DguestQueue  internalqueue.SchedulingQueue
 }

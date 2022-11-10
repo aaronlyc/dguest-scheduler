@@ -10,8 +10,8 @@ package scheduler
 //	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 //	"k8s.io/apimachinery/pkg/util/sets"
 //	"k8s.io/apimachinery/pkg/util/wait"
-//	"k8s.io/client-go/informers"
-//	clientsetfake "k8s.io/client-go/kubernetes/fake"
+//	"k8s.io/schdulerClient-go/informers"
+//	clientsetfake "k8s.io/schdulerClient-go/kubernetes/fake"
 //	extenderv1 "k8s.io/kube-scheduler/extender/v1"
 //	schedulerapi "dguest-scheduler/pkg/scheduler/apis/config"
 //	"dguest-scheduler/pkg/scheduler/framework"
@@ -256,8 +256,8 @@ package scheduler
 //
 //	for _, test := range tests {
 //		t.Run(test.name, func(t *testing.T) {
-//			client := clientsetfake.NewSimpleClientset()
-//			informerFactory := informers.NewSharedInformerFactory(client, 0)
+//			schdulerClient := clientsetfake.NewSimpleClientset()
+//			informerFactory := informers.NewSharedInformerFactory(schdulerClient, 0)
 //
 //			var extenders []framework.Extender
 //			for ii := range test.extenders {
@@ -271,7 +271,7 @@ package scheduler
 //			defer cancel()
 //			fwk, err := st.NewFramework(
 //				test.registerPlugins, "", ctx.Done(),
-//				runtime.WithClientSet(client),
+//				runtime.WithClientSet(schdulerClient),
 //				runtime.WithInformerFactory(informerFactory),
 //				runtime.WithDguestNominator(internalqueue.NewDguestNominator(informerFactory.Core().V1().Dguests().Lister())),
 //			)

@@ -17,13 +17,13 @@ limitations under the License.
 package validation
 
 import (
+	v12 "dguest-scheduler/pkg/scheduler/apis/config/v1"
 	"fmt"
 	"net"
 	"reflect"
 	"strconv"
 	"strings"
 
-	"dguest-scheduler/pkg/scheduler/apis/config"
 	"github.com/google/go-cmp/cmp"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,7 +36,7 @@ import (
 )
 
 // ValidateKubeSchedulerConfiguration ensures validation of the SchedulerConfiguration struct
-func ValidateKubeSchedulerConfiguration(cc *config.SchedulerConfiguration) utilerrors.Aggregate {
+func ValidateKubeSchedulerConfiguration(cc *v12.SchedulerConfiguration) utilerrors.Aggregate {
 	var errs []error
 	errs = append(errs, componentbasevalidation.ValidateClientConnectionConfiguration(&cc.ClientConnection, field.NewPath("clientConnection")).ToAggregate())
 	errs = append(errs, componentbasevalidation.ValidateLeaderElectionConfiguration(&cc.LeaderElection, field.NewPath("leaderElection")).ToAggregate())
@@ -99,7 +99,7 @@ func ValidateKubeSchedulerConfiguration(cc *config.SchedulerConfiguration) utile
 			cc.DguestMaxBackoffSeconds, "must be greater than or equal to DguestInitialBackoffSeconds"))
 	}
 
-	errs = append(errs, validateExtenders(field.NewPath("extenders"), cc.Extenders)...)
+	//errs = append(errs, validateExtenders(field.NewPath("extenders"), cc.Extenders)...)
 	return utilerrors.Flatten(utilerrors.NewAggregate(errs))
 }
 
@@ -146,7 +146,7 @@ func isPluginInvalid(apiVersion string, name string) (bool, string) {
 	return false, ""
 }
 
-func validatePluginSetForInvalidPlugins(path *field.Path, apiVersion string, ps config.PluginSet) []error {
+func validatePluginSetForInvalidPlugins(path *field.Path, apiVersion string, ps v12.PluginSet) []error {
 	var errs []error
 	for i, plugin := range ps.Enabled {
 		if invalid, invalidVersion := isPluginInvalid(apiVersion, plugin.Name); invalid {
@@ -156,7 +156,7 @@ func validatePluginSetForInvalidPlugins(path *field.Path, apiVersion string, ps 
 	return errs
 }
 
-func validateKubeSchedulerProfile(path *field.Path, apiVersion string, profile *config.KubeSchedulerProfile) []error {
+func validateKubeSchedulerProfile(path *field.Path, apiVersion string, profile *v12.SchedulerProfile) []error {
 	var errs []error
 	if len(profile.SchedulerName) == 0 {
 		errs = append(errs, field.Required(path.Child("schedulerName"), ""))
@@ -165,7 +165,7 @@ func validateKubeSchedulerProfile(path *field.Path, apiVersion string, profile *
 	return errs
 }
 
-func validatePluginConfig(path *field.Path, apiVersion string, profile *config.KubeSchedulerProfile) []error {
+func validatePluginConfig(path *field.Path, apiVersion string, profile *v12.SchedulerProfile) []error {
 	var errs []error
 	m := map[string]interface{}{
 		"DefaultPreemption":               ValidateDefaultPreemptionArgs,
@@ -178,7 +178,7 @@ func validatePluginConfig(path *field.Path, apiVersion string, profile *config.K
 	}
 
 	if profile.Plugins != nil {
-		stagesToPluginSet := map[string]config.PluginSet{
+		stagesToPluginSet := map[string]v12.PluginSet{
 			"queueSort":  profile.Plugins.QueueSort,
 			"preFilter":  profile.Plugins.PreFilter,
 			"filter":     profile.Plugins.Filter,
@@ -229,9 +229,9 @@ func validatePluginConfig(path *field.Path, apiVersion string, profile *config.K
 	return errs
 }
 
-func validateCommonQueueSort(path *field.Path, profiles []config.KubeSchedulerProfile) []error {
+func validateCommonQueueSort(path *field.Path, profiles []v12.SchedulerProfile) []error {
 	var errs []error
-	var canon config.PluginSet
+	var canon v12.PluginSet
 	var queueSortName string
 	var queueSortArgs runtime.Object
 	if profiles[0].Plugins != nil {
@@ -250,7 +250,7 @@ func validateCommonQueueSort(path *field.Path, profiles []config.KubeSchedulerPr
 		}
 	}
 	for i := 1; i < len(profiles); i++ {
-		var curr config.PluginSet
+		var curr v12.PluginSet
 		if profiles[i].Plugins != nil {
 			curr = profiles[i].Plugins.QueueSort
 		}
@@ -267,35 +267,35 @@ func validateCommonQueueSort(path *field.Path, profiles []config.KubeSchedulerPr
 }
 
 // validateExtenders validates the configured extenders for the Scheduler
-func validateExtenders(fldPath *field.Path, extenders []config.Extender) []error {
-	var errs []error
-	binders := 0
-	extenderManagedResources := sets.NewString()
-	for i, extender := range extenders {
-		path := fldPath.Index(i)
-		if len(extender.PrioritizeVerb) > 0 && extender.Weight <= 0 {
-			errs = append(errs, field.Invalid(path.Child("weight"),
-				extender.Weight, "must have a positive weight applied to it"))
-		}
-		if extender.BindVerb != "" {
-			binders++
-		}
-		for j, resource := range extender.ManagedResources {
-			managedResourcesPath := path.Child("managedResources").Index(j)
-			validationErrors := validateExtendedResourceName(managedResourcesPath.Child("name"), v1.ResourceName(resource.Name))
-			errs = append(errs, validationErrors...)
-			if extenderManagedResources.Has(resource.Name) {
-				errs = append(errs, field.Invalid(managedResourcesPath.Child("name"),
-					resource.Name, "duplicate extender managed resource name"))
-			}
-			extenderManagedResources.Insert(resource.Name)
-		}
-	}
-	if binders > 1 {
-		errs = append(errs, field.Invalid(fldPath, fmt.Sprintf("found %d extenders implementing bind", binders), "only one extender can implement bind"))
-	}
-	return errs
-}
+//func validateExtenders(fldPath *field.Path, extenders []config.Extender) []error {
+//	var errs []error
+//	binders := 0
+//	extenderManagedResources := sets.NewString()
+//	for i, extender := range extenders {
+//		path := fldPath.Index(i)
+//		if len(extender.PrioritizeVerb) > 0 && extender.Weight <= 0 {
+//			errs = append(errs, field.Invalid(path.Child("weight"),
+//				extender.Weight, "must have a positive weight applied to it"))
+//		}
+//		if extender.BindVerb != "" {
+//			binders++
+//		}
+//		for j, resource := range extender.ManagedResources {
+//			managedResourcesPath := path.Child("managedResources").Index(j)
+//			validationErrors := validateExtendedResourceName(managedResourcesPath.Child("name"), v1.ResourceName(resource.Name))
+//			errs = append(errs, validationErrors...)
+//			if extenderManagedResources.Has(resource.Name) {
+//				errs = append(errs, field.Invalid(managedResourcesPath.Child("name"),
+//					resource.Name, "duplicate extender managed resource name"))
+//			}
+//			extenderManagedResources.Insert(resource.Name)
+//		}
+//	}
+//	if binders > 1 {
+//		errs = append(errs, field.Invalid(fldPath, fmt.Sprintf("found %d extenders implementing bind", binders), "only one extender can implement bind"))
+//	}
+//	return errs
+//}
 
 // validateExtendedResourceName checks whether the specified name is a valid
 // extended resource name.

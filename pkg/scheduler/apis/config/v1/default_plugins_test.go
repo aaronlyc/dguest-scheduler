@@ -17,7 +17,6 @@ limitations under the License.
 package v1
 
 import (
-	"dguest-scheduler/pkg/scheduler/apis/config"
 	"testing"
 
 	"dguest-scheduler/pkg/scheduler/framework/plugins/names"
@@ -31,13 +30,13 @@ func TestApplyFeatureGates(t *testing.T) {
 	tests := []struct {
 		name       string
 		features   map[featuregate.Feature]bool
-		wantConfig *config.Plugins
+		wantConfig *Plugins
 	}{
 		{
 			name: "Feature gates disabled",
-			wantConfig: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			wantConfig: &Plugins{
+				MultiPoint: PluginSet{
+					Enabled: []Plugin{
 						{Name: names.PrioritySort},
 						//{Name: names.FoodUnschedulable},
 						{Name: names.FoodName},
@@ -81,30 +80,30 @@ func TestApplyFeatureGates(t *testing.T) {
 func TestMergePlugins(t *testing.T) {
 	tests := []struct {
 		name            string
-		customPlugins   *config.Plugins
-		defaultPlugins  *config.Plugins
-		expectedPlugins *config.Plugins
+		customPlugins   *Plugins
+		defaultPlugins  *Plugins
+		expectedPlugins *Plugins
 	}{
 		{
 			name: "AppendCustomPlugin",
-			customPlugins: &config.Plugins{
-				Filter: config.PluginSet{
-					Enabled: []config.Plugin{
+			customPlugins: &Plugins{
+				Filter: PluginSet{
+					Enabled: []Plugin{
 						{Name: "CustomPlugin"},
 					},
 				},
 			},
-			defaultPlugins: &config.Plugins{
-				Filter: config.PluginSet{
-					Enabled: []config.Plugin{
+			defaultPlugins: &Plugins{
+				Filter: PluginSet{
+					Enabled: []Plugin{
 						{Name: "DefaultPlugin1"},
 						{Name: "DefaultPlugin2"},
 					},
 				},
 			},
-			expectedPlugins: &config.Plugins{
-				Filter: config.PluginSet{
-					Enabled: []config.Plugin{
+			expectedPlugins: &Plugins{
+				Filter: PluginSet{
+					Enabled: []Plugin{
 						{Name: "DefaultPlugin1"},
 						{Name: "DefaultPlugin2"},
 						{Name: "CustomPlugin"},
@@ -114,33 +113,33 @@ func TestMergePlugins(t *testing.T) {
 		},
 		{
 			name: "InsertAfterDefaultPlugins2",
-			customPlugins: &config.Plugins{
-				Filter: config.PluginSet{
-					Enabled: []config.Plugin{
+			customPlugins: &Plugins{
+				Filter: PluginSet{
+					Enabled: []Plugin{
 						{Name: "CustomPlugin"},
 						{Name: "DefaultPlugin2"},
 					},
-					Disabled: []config.Plugin{
+					Disabled: []Plugin{
 						{Name: "DefaultPlugin2"},
 					},
 				},
 			},
-			defaultPlugins: &config.Plugins{
-				Filter: config.PluginSet{
-					Enabled: []config.Plugin{
+			defaultPlugins: &Plugins{
+				Filter: PluginSet{
+					Enabled: []Plugin{
 						{Name: "DefaultPlugin1"},
 						{Name: "DefaultPlugin2"},
 					},
 				},
 			},
-			expectedPlugins: &config.Plugins{
-				Filter: config.PluginSet{
-					Enabled: []config.Plugin{
+			expectedPlugins: &Plugins{
+				Filter: PluginSet{
+					Enabled: []Plugin{
 						{Name: "DefaultPlugin1"},
 						{Name: "CustomPlugin"},
 						{Name: "DefaultPlugin2"},
 					},
-					Disabled: []config.Plugin{
+					Disabled: []Plugin{
 						{Name: "DefaultPlugin2"},
 					},
 				},
@@ -148,34 +147,34 @@ func TestMergePlugins(t *testing.T) {
 		},
 		{
 			name: "InsertBeforeAllPlugins",
-			customPlugins: &config.Plugins{
-				Filter: config.PluginSet{
-					Enabled: []config.Plugin{
+			customPlugins: &Plugins{
+				Filter: PluginSet{
+					Enabled: []Plugin{
 						{Name: "CustomPlugin"},
 						{Name: "DefaultPlugin1"},
 						{Name: "DefaultPlugin2"},
 					},
-					Disabled: []config.Plugin{
+					Disabled: []Plugin{
 						{Name: "*"},
 					},
 				},
 			},
-			defaultPlugins: &config.Plugins{
-				Filter: config.PluginSet{
-					Enabled: []config.Plugin{
+			defaultPlugins: &Plugins{
+				Filter: PluginSet{
+					Enabled: []Plugin{
 						{Name: "DefaultPlugin1"},
 						{Name: "DefaultPlugin2"},
 					},
 				},
 			},
-			expectedPlugins: &config.Plugins{
-				Filter: config.PluginSet{
-					Enabled: []config.Plugin{
+			expectedPlugins: &Plugins{
+				Filter: PluginSet{
+					Enabled: []Plugin{
 						{Name: "CustomPlugin"},
 						{Name: "DefaultPlugin1"},
 						{Name: "DefaultPlugin2"},
 					},
-					Disabled: []config.Plugin{
+					Disabled: []Plugin{
 						{Name: "*"},
 					},
 				},
@@ -183,32 +182,32 @@ func TestMergePlugins(t *testing.T) {
 		},
 		{
 			name: "ReorderDefaultPlugins",
-			customPlugins: &config.Plugins{
-				Filter: config.PluginSet{
-					Enabled: []config.Plugin{
+			customPlugins: &Plugins{
+				Filter: PluginSet{
+					Enabled: []Plugin{
 						{Name: "DefaultPlugin2"},
 						{Name: "DefaultPlugin1"},
 					},
-					Disabled: []config.Plugin{
+					Disabled: []Plugin{
 						{Name: "*"},
 					},
 				},
 			},
-			defaultPlugins: &config.Plugins{
-				Filter: config.PluginSet{
-					Enabled: []config.Plugin{
+			defaultPlugins: &Plugins{
+				Filter: PluginSet{
+					Enabled: []Plugin{
 						{Name: "DefaultPlugin1"},
 						{Name: "DefaultPlugin2"},
 					},
 				},
 			},
-			expectedPlugins: &config.Plugins{
-				Filter: config.PluginSet{
-					Enabled: []config.Plugin{
+			expectedPlugins: &Plugins{
+				Filter: PluginSet{
+					Enabled: []Plugin{
 						{Name: "DefaultPlugin2"},
 						{Name: "DefaultPlugin1"},
 					},
-					Disabled: []config.Plugin{
+					Disabled: []Plugin{
 						{Name: "*"},
 					},
 				},
@@ -217,17 +216,17 @@ func TestMergePlugins(t *testing.T) {
 		{
 			name:          "ApplyNilCustomPlugin",
 			customPlugins: nil,
-			defaultPlugins: &config.Plugins{
-				Filter: config.PluginSet{
-					Enabled: []config.Plugin{
+			defaultPlugins: &Plugins{
+				Filter: PluginSet{
+					Enabled: []Plugin{
 						{Name: "DefaultPlugin1"},
 						{Name: "DefaultPlugin2"},
 					},
 				},
 			},
-			expectedPlugins: &config.Plugins{
-				Filter: config.PluginSet{
-					Enabled: []config.Plugin{
+			expectedPlugins: &Plugins{
+				Filter: PluginSet{
+					Enabled: []Plugin{
 						{Name: "DefaultPlugin1"},
 						{Name: "DefaultPlugin2"},
 					},
@@ -236,26 +235,26 @@ func TestMergePlugins(t *testing.T) {
 		},
 		{
 			name: "CustomPluginOverrideDefaultPlugin",
-			customPlugins: &config.Plugins{
-				Filter: config.PluginSet{
-					Enabled: []config.Plugin{
+			customPlugins: &Plugins{
+				Filter: PluginSet{
+					Enabled: []Plugin{
 						{Name: "Plugin1", Weight: 2},
 						{Name: "Plugin3", Weight: 3},
 					},
 				},
 			},
-			defaultPlugins: &config.Plugins{
-				Filter: config.PluginSet{
-					Enabled: []config.Plugin{
+			defaultPlugins: &Plugins{
+				Filter: PluginSet{
+					Enabled: []Plugin{
 						{Name: "Plugin1"},
 						{Name: "Plugin2"},
 						{Name: "Plugin3"},
 					},
 				},
 			},
-			expectedPlugins: &config.Plugins{
-				Filter: config.PluginSet{
-					Enabled: []config.Plugin{
+			expectedPlugins: &Plugins{
+				Filter: PluginSet{
+					Enabled: []Plugin{
 						{Name: "Plugin1", Weight: 2},
 						{Name: "Plugin2"},
 						{Name: "Plugin3", Weight: 3},
@@ -265,26 +264,26 @@ func TestMergePlugins(t *testing.T) {
 		},
 		{
 			name: "OrderPreserveAfterOverride",
-			customPlugins: &config.Plugins{
-				Filter: config.PluginSet{
-					Enabled: []config.Plugin{
+			customPlugins: &Plugins{
+				Filter: PluginSet{
+					Enabled: []Plugin{
 						{Name: "Plugin2", Weight: 2},
 						{Name: "Plugin1", Weight: 1},
 					},
 				},
 			},
-			defaultPlugins: &config.Plugins{
-				Filter: config.PluginSet{
-					Enabled: []config.Plugin{
+			defaultPlugins: &Plugins{
+				Filter: PluginSet{
+					Enabled: []Plugin{
 						{Name: "Plugin1"},
 						{Name: "Plugin2"},
 						{Name: "Plugin3"},
 					},
 				},
 			},
-			expectedPlugins: &config.Plugins{
-				Filter: config.PluginSet{
-					Enabled: []config.Plugin{
+			expectedPlugins: &Plugins{
+				Filter: PluginSet{
+					Enabled: []Plugin{
 						{Name: "Plugin1", Weight: 1},
 						{Name: "Plugin2", Weight: 2},
 						{Name: "Plugin3"},
@@ -294,9 +293,9 @@ func TestMergePlugins(t *testing.T) {
 		},
 		{
 			name: "RepeatedCustomPlugin",
-			customPlugins: &config.Plugins{
-				Filter: config.PluginSet{
-					Enabled: []config.Plugin{
+			customPlugins: &Plugins{
+				Filter: PluginSet{
+					Enabled: []Plugin{
 						{Name: "Plugin1"},
 						{Name: "Plugin2", Weight: 2},
 						{Name: "Plugin3"},
@@ -304,18 +303,18 @@ func TestMergePlugins(t *testing.T) {
 					},
 				},
 			},
-			defaultPlugins: &config.Plugins{
-				Filter: config.PluginSet{
-					Enabled: []config.Plugin{
+			defaultPlugins: &Plugins{
+				Filter: PluginSet{
+					Enabled: []Plugin{
 						{Name: "Plugin1"},
 						{Name: "Plugin2"},
 						{Name: "Plugin3"},
 					},
 				},
 			},
-			expectedPlugins: &config.Plugins{
-				Filter: config.PluginSet{
-					Enabled: []config.Plugin{
+			expectedPlugins: &Plugins{
+				Filter: PluginSet{
+					Enabled: []Plugin{
 						{Name: "Plugin1"},
 						{Name: "Plugin2", Weight: 4},
 						{Name: "Plugin3"},
@@ -326,24 +325,24 @@ func TestMergePlugins(t *testing.T) {
 		},
 		{
 			name: "Append custom MultiPoint plugin",
-			customPlugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			customPlugins: &Plugins{
+				MultiPoint: PluginSet{
+					Enabled: []Plugin{
 						{Name: "CustomPlugin"},
 					},
 				},
 			},
-			defaultPlugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			defaultPlugins: &Plugins{
+				MultiPoint: PluginSet{
+					Enabled: []Plugin{
 						{Name: "DefaultPlugin1"},
 						{Name: "DefaultPlugin2"},
 					},
 				},
 			},
-			expectedPlugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			expectedPlugins: &Plugins{
+				MultiPoint: PluginSet{
+					Enabled: []Plugin{
 						{Name: "DefaultPlugin1"},
 						{Name: "DefaultPlugin2"},
 						{Name: "CustomPlugin"},
@@ -353,43 +352,43 @@ func TestMergePlugins(t *testing.T) {
 		},
 		{
 			name: "Append disabled Multipoint plugins",
-			customPlugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			customPlugins: &Plugins{
+				MultiPoint: PluginSet{
+					Enabled: []Plugin{
 						{Name: "CustomPlugin"},
 						{Name: "CustomPlugin2"},
 					},
-					Disabled: []config.Plugin{
+					Disabled: []Plugin{
 						{Name: "DefaultPlugin2"},
 					},
 				},
-				Score: config.PluginSet{
-					Disabled: []config.Plugin{
+				Score: PluginSet{
+					Disabled: []Plugin{
 						{Name: "CustomPlugin2"},
 					},
 				},
 			},
-			defaultPlugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			defaultPlugins: &Plugins{
+				MultiPoint: PluginSet{
+					Enabled: []Plugin{
 						{Name: "DefaultPlugin1"},
 						{Name: "DefaultPlugin2"},
 					},
 				},
 			},
-			expectedPlugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			expectedPlugins: &Plugins{
+				MultiPoint: PluginSet{
+					Enabled: []Plugin{
 						{Name: "DefaultPlugin1"},
 						{Name: "CustomPlugin"},
 						{Name: "CustomPlugin2"},
 					},
-					Disabled: []config.Plugin{
+					Disabled: []Plugin{
 						{Name: "DefaultPlugin2"},
 					},
 				},
-				Score: config.PluginSet{
-					Disabled: []config.Plugin{
+				Score: PluginSet{
+					Disabled: []Plugin{
 						{Name: "CustomPlugin2"},
 					},
 				},
@@ -397,23 +396,23 @@ func TestMergePlugins(t *testing.T) {
 		},
 		{
 			name: "override default MultiPoint plugins with custom value",
-			customPlugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			customPlugins: &Plugins{
+				MultiPoint: PluginSet{
+					Enabled: []Plugin{
 						{Name: "DefaultPlugin", Weight: 5},
 					},
 				},
 			},
-			defaultPlugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			defaultPlugins: &Plugins{
+				MultiPoint: PluginSet{
+					Enabled: []Plugin{
 						{Name: "DefaultPlugin"},
 					},
 				},
 			},
-			expectedPlugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			expectedPlugins: &Plugins{
+				MultiPoint: PluginSet{
+					Enabled: []Plugin{
 						{Name: "DefaultPlugin", Weight: 5},
 					},
 				},
@@ -421,30 +420,30 @@ func TestMergePlugins(t *testing.T) {
 		},
 		{
 			name: "disabled MultiPoint plugin in default set",
-			defaultPlugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			defaultPlugins: &Plugins{
+				MultiPoint: PluginSet{
+					Enabled: []Plugin{
 						{Name: "DefaultPlugin"},
 					},
-					Disabled: []config.Plugin{
+					Disabled: []Plugin{
 						{Name: "DefaultPlugin2"},
 					},
 				},
 			},
-			customPlugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			customPlugins: &Plugins{
+				MultiPoint: PluginSet{
+					Enabled: []Plugin{
 						{Name: "CustomPlugin"},
 					},
 				},
 			},
-			expectedPlugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			expectedPlugins: &Plugins{
+				MultiPoint: PluginSet{
+					Enabled: []Plugin{
 						{Name: "DefaultPlugin"},
 						{Name: "CustomPlugin"},
 					},
-					Disabled: []config.Plugin{
+					Disabled: []Plugin{
 						{Name: "DefaultPlugin2"},
 					},
 				},
@@ -452,34 +451,34 @@ func TestMergePlugins(t *testing.T) {
 		},
 		{
 			name: "disabled MultiPoint plugin in default set for specific extension point",
-			defaultPlugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			defaultPlugins: &Plugins{
+				MultiPoint: PluginSet{
+					Enabled: []Plugin{
 						{Name: "DefaultPlugin"},
 					},
 				},
-				Score: config.PluginSet{
-					Disabled: []config.Plugin{
+				Score: PluginSet{
+					Disabled: []Plugin{
 						{Name: "DefaultPlugin2"},
 					},
 				},
 			},
-			customPlugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			customPlugins: &Plugins{
+				MultiPoint: PluginSet{
+					Enabled: []Plugin{
 						{Name: "CustomPlugin"},
 					},
 				},
 			},
-			expectedPlugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			expectedPlugins: &Plugins{
+				MultiPoint: PluginSet{
+					Enabled: []Plugin{
 						{Name: "DefaultPlugin"},
 						{Name: "CustomPlugin"},
 					},
 				},
-				Score: config.PluginSet{
-					Disabled: []config.Plugin{
+				Score: PluginSet{
+					Disabled: []Plugin{
 						{Name: "DefaultPlugin2"},
 					},
 				},
@@ -487,23 +486,23 @@ func TestMergePlugins(t *testing.T) {
 		},
 		{
 			name: "multipoint with only disabled gets merged",
-			defaultPlugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Enabled: []config.Plugin{
+			defaultPlugins: &Plugins{
+				MultiPoint: PluginSet{
+					Enabled: []Plugin{
 						{Name: "DefaultPlugin"},
 					},
 				},
 			},
-			customPlugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Disabled: []config.Plugin{
+			customPlugins: &Plugins{
+				MultiPoint: PluginSet{
+					Disabled: []Plugin{
 						{Name: "DefaultPlugin"},
 					},
 				},
 			},
-			expectedPlugins: &config.Plugins{
-				MultiPoint: config.PluginSet{
-					Disabled: []config.Plugin{
+			expectedPlugins: &Plugins{
+				MultiPoint: PluginSet{
+					Disabled: []Plugin{
 						{Name: "DefaultPlugin"},
 					},
 				},

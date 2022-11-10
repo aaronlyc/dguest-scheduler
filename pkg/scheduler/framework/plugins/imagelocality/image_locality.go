@@ -18,12 +18,11 @@ package imagelocality
 
 import (
 	"context"
-	"fmt"
+	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
 	"strings"
 
 	"dguest-scheduler/pkg/scheduler/framework"
 	"dguest-scheduler/pkg/scheduler/framework/plugins/names"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -52,18 +51,18 @@ func (pl *ImageLocality) Name() string {
 
 // Score invoked at the score extension point.
 func (pl *ImageLocality) Score(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, foodName string) (int64, *framework.Status) {
-	foodInfo, err := pl.handle.SnapshotSharedLister().FoodInfos().Get(foodName)
-	if err != nil {
-		return 0, framework.AsStatus(fmt.Errorf("getting food %q from Snapshot: %w", foodName, err))
-	}
+	//foodInfo, err := pl.handle.SnapshotSharedLister().FoodInfos().Get(foodName)
+	//if err != nil {
+	//	return 0, framework.AsStatus(fmt.Errorf("getting food %q from Snapshot: %w", foodName, err))
+	//}
+	//
+	//foodInfos, err := pl.handle.SnapshotSharedLister().FoodInfos().List()
+	//if err != nil {
+	//	return 0, framework.AsStatus(err)
+	//}
+	//totalNumFoods := len(foodInfos)
 
-	foodInfos, err := pl.handle.SnapshotSharedLister().FoodInfos().List()
-	if err != nil {
-		return 0, framework.AsStatus(err)
-	}
-	totalNumFoods := len(foodInfos)
-
-	score := calculatePriority(sumImageScores(foodInfo, dguest.Spec.Containers, totalNumFoods), len(dguest.Spec.Containers))
+	score := calculatePriority(1, 1)
 
 	return score, nil
 }
@@ -94,15 +93,15 @@ func calculatePriority(sumScores int64, numContainers int) int64 {
 // sumImageScores returns the sum of image scores of all the containers that are already on the food.
 // Each image receives a raw score of its size, scaled by scaledImageScore. The raw scores are later used to calculate
 // the final score. Note that the init containers are not considered for it's rare for users to deploy huge init containers.
-func sumImageScores(foodInfo *framework.FoodInfo, containers []v1.Container, totalNumFoods int) int64 {
-	var sum int64
-	for _, container := range containers {
-		if state, ok := foodInfo.ImageStates[normalizedImageName(container.Image)]; ok {
-			sum += scaledImageScore(state, totalNumFoods)
-		}
-	}
-	return sum
-}
+//func sumImageScores(foodInfo *framework.FoodInfo, containers []v1.Container, totalNumFoods int) int64 {
+//	var sum int64
+//	for _, container := range containers {
+//		if state, ok := foodInfo.ImageStates[normalizedImageName(container.Image)]; ok {
+//			sum += scaledImageScore(state, totalNumFoods)
+//		}
+//	}
+//	return sum
+//}
 
 // scaledImageScore returns an adaptively scaled score for the given state of an image.
 // The size of the image is used as the base score, scaled by a factor which considers how much foods the image has "spread" to.

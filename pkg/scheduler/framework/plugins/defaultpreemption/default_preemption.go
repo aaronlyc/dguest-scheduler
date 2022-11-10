@@ -18,29 +18,23 @@ package defaultpreemption
 
 import (
 	"context"
+	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
+	listersv1alpha1 "dguest-scheduler/pkg/generated/listers/scheduler/v1alpha1"
+	v12 "dguest-scheduler/pkg/scheduler/apis/config/v1"
 	"fmt"
 	"math/rand"
 	"sort"
 
-	"dguest-scheduler/pkg/scheduler/apis/config"
 	"dguest-scheduler/pkg/scheduler/apis/config/validation"
+	extenderv1 "dguest-scheduler/pkg/scheduler/apis/extender/v1"
 	"dguest-scheduler/pkg/scheduler/framework"
 	"dguest-scheduler/pkg/scheduler/framework/plugins/feature"
 	"dguest-scheduler/pkg/scheduler/framework/plugins/names"
 	"dguest-scheduler/pkg/scheduler/framework/preemption"
 	"dguest-scheduler/pkg/scheduler/metrics"
 	"dguest-scheduler/pkg/scheduler/util"
-	v1 "k8s.io/api/core/v1"
-	policy "k8s.io/api/policy/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/informers"
-	corelisters "k8s.io/client-go/listers/core/v1"
-	policylisters "k8s.io/client-go/listers/policy/v1"
-	corev1helpers "k8s.io/component-helpers/scheduling/corev1"
 	"k8s.io/klog/v2"
-	extenderv1 "k8s.io/kube-scheduler/extender/v1"
 )
 
 // Name of the plugin used in the plugin registry and configurations.
@@ -49,9 +43,9 @@ const Name = names.DefaultPreemption
 // DefaultPreemption is a PostFilter plugin implements the preemption logic.
 type DefaultPreemption struct {
 	fh           framework.Handle
-	args         config.DefaultPreemptionArgs
-	dguestLister corelisters.DguestLister
-	pdbLister    policylisters.DguestDisruptionBudgetLister
+	args         v12.DefaultPreemptionArgs
+	dguestLister listersv1alpha1.DguestLister
+	//pdbLister    listersv1alpha1.DguestDisruptionBudgetLister
 }
 
 var _ framework.PostFilterPlugin = &DefaultPreemption{}
@@ -63,7 +57,7 @@ func (pl *DefaultPreemption) Name() string {
 
 // New initializes a new plugin and returns it.
 func New(dpArgs runtime.Object, fh framework.Handle, fts feature.Features) (framework.Plugin, error) {
-	args, ok := dpArgs.(*config.DefaultPreemptionArgs)
+	args, ok := dpArgs.(*v12.DefaultPreemptionArgs)
 	if !ok {
 		return nil, fmt.Errorf("got args of type %T, want *DefaultPreemptionArgs", dpArgs)
 	}
@@ -73,8 +67,8 @@ func New(dpArgs runtime.Object, fh framework.Handle, fts feature.Features) (fram
 	pl := DefaultPreemption{
 		fh:           fh,
 		args:         *args,
-		dguestLister: fh.SharedInformerFactory().Core().V1().Dguests().Lister(),
-		pdbLister:    getPDBLister(fh.SharedInformerFactory()),
+		dguestLister: fh.SchedulerInformerFactory().Scheduler().V1alpha1().Dguests().Lister(),
+		//pdbLister:    getPDBLister(fh.SharedInformerFactory()),
 	}
 	return &pl, nil
 }
@@ -89,9 +83,9 @@ func (pl *DefaultPreemption) PostFilter(ctx context.Context, state *framework.Cy
 		PluginName:   names.DefaultPreemption,
 		Handler:      pl.fh,
 		DguestLister: pl.dguestLister,
-		PdbLister:    pl.pdbLister,
-		State:        state,
-		Interface:    pl,
+		//PdbLister:    pl.pdbLister,
+		State:     state,
+		Interface: pl,
 	}
 
 	result, status := pe.Preempt(ctx, dguest, m)
@@ -138,8 +132,7 @@ func (pl *DefaultPreemption) SelectVictimsOnFood(
 	ctx context.Context,
 	state *framework.CycleState,
 	dguest *v1alpha1.Dguest,
-	foodInfo *framework.FoodInfo,
-	pdbs []*policy.DguestDisruptionBudget) ([]*v1alpha1.Dguest, int, *framework.Status) {
+	foodInfo *framework.FoodInfo) ([]*v1alpha1.Dguest, int, *framework.Status) {
 	var potentialVictims []*framework.DguestInfo
 	removeDguest := func(rpi *framework.DguestInfo) error {
 		if err := foodInfo.RemoveDguest(rpi.Dguest); err != nil {
@@ -161,15 +154,15 @@ func (pl *DefaultPreemption) SelectVictimsOnFood(
 	}
 	// As the first step, remove all the lower priority dguests from the food and
 	// check if the given dguest can be scheduled.
-	dguestPriority := corev1helpers.DguestPriority(dguest)
-	for _, pi := range foodInfo.Dguests {
-		if corev1helpers.DguestPriority(pi.Dguest) < dguestPriority {
-			potentialVictims = append(potentialVictims, pi)
-			if err := removeDguest(pi); err != nil {
-				return nil, 0, framework.AsStatus(err)
-			}
-		}
-	}
+	//dguestPriority := corev1helpers.DguestPriority(dguest)
+	//for _, pi := range foodInfo.Dguests {
+	//	if corev1helpers.DguestPriority(pi.Dguest) < dguestPriority {
+	//		potentialVictims = append(potentialVictims, pi)
+	//		if err := removeDguest(pi); err != nil {
+	//			return nil, 0, framework.AsStatus(err)
+	//		}
+	//	}
+	//}
 
 	// No potential victims are found, and so we don't need to evaluate the food again since its state didn't change.
 	if len(potentialVictims) == 0 {
@@ -194,7 +187,7 @@ func (pl *DefaultPreemption) SelectVictimsOnFood(
 	// Try to reprieve as many dguests as possible. We first try to reprieve the PDB
 	// violating victims and then other non-violating ones. In both cases, we start
 	// from the highest priority victims.
-	violatingVictims, nonViolatingVictims := filterDguestsWithPDBViolation(potentialVictims, pdbs)
+	violatingVictims, nonViolatingVictims := filterDguestsWithPDBViolation(potentialVictims)
 	reprieveDguest := func(pi *framework.DguestInfo) (bool, error) {
 		if err := addDguest(pi); err != nil {
 			return false, err
@@ -236,11 +229,11 @@ func (pl *DefaultPreemption) SelectVictimsOnFood(
 // We look at the food that is nominated for this dguest and as long as there are
 // terminating dguests on the food, we don't consider this for preempting more dguests.
 func (pl *DefaultPreemption) DguestEligibleToPreemptOthers(dguest *v1alpha1.Dguest, nominatedFoodStatus *framework.Status) (bool, string) {
-	if dguest.Spec.PreemptionPolicy != nil && *dguest.Spec.PreemptionPolicy == v1.PreemptNever {
-		return false, fmt.Sprint("not eligible due to preemptionPolicy=Never.")
-	}
-	foodInfos := pl.fh.SnapshotSharedLister().FoodInfos()
-	nomFoodName := dguest.Status.NominatedFoodName
+	//if dguest.Spec.PreemptionPolicy != nil && *dguest.Spec.PreemptionPolicy == v1.PreemptNever {
+	//	return false, fmt.Sprint("not eligible due to preemptionPolicy=Never.")
+	//}
+	//foodInfos := pl.fh.SnapshotSharedLister().FoodInfos()
+	nomFoodName := dguest.Status.FoodsInfo
 	if len(nomFoodName) > 0 {
 		// If the dguest's nominated food is considered as UnschedulableAndUnresolvable by the filters,
 		// then the dguest should be considered for preempting again.
@@ -248,15 +241,18 @@ func (pl *DefaultPreemption) DguestEligibleToPreemptOthers(dguest *v1alpha1.Dgue
 			return true, ""
 		}
 
-		if foodInfo, _ := foodInfos.Get(nomFoodName); foodInfo != nil {
-			dguestPriority := corev1helpers.DguestPriority(dguest)
-			for _, p := range foodInfo.Dguests {
-				if p.Dguest.DeletionTimestamp != nil && corev1helpers.DguestPriority(p.Dguest) < dguestPriority {
-					// There is a terminating dguest on the nominated food.
-					return false, fmt.Sprint("not eligible due to a terminating dguest on the nominated food.")
-				}
-			}
-		}
+		//for _, info := range nomFoodName {
+		//if foodInfo, _ := foodInfos.Get(info.Name); foodInfo != nil {
+		//	dguestPriority := corev1helpers.DguestPriority(dguest)
+		//	for _, p := range foodInfo.Dguests {
+		//		if p.Dguest.DeletionTimestamp != nil && corev1helpers.DguestPriority(p.Dguest) < dguestPriority {
+		//			// There is a terminating dguest on the nominated food.
+		//			return false, fmt.Sprint("not eligible due to a terminating dguest on the nominated food.")
+		//		}
+		//	}
+		//}
+		//}
+
 	}
 	return true, ""
 }
@@ -266,54 +262,54 @@ func (pl *DefaultPreemption) DguestEligibleToPreemptOthers(dguest *v1alpha1.Dgue
 // preempted.
 // This function is stable and does not change the order of received dguests. So, if it
 // receives a sorted list, grouping will preserve the order of the input list.
-func filterDguestsWithPDBViolation(dguestInfos []*framework.DguestInfo, pdbs []*policy.DguestDisruptionBudget) (violatingDguestInfos, nonViolatingDguestInfos []*framework.DguestInfo) {
-	pdbsAllowed := make([]int32, len(pdbs))
-	for i, pdb := range pdbs {
-		pdbsAllowed[i] = pdb.Status.DisruptionsAllowed
-	}
-
-	for _, dguestInfo := range dguestInfos {
-		dguest := dguestInfo.Dguest
-		pdbForDguestIsViolated := false
-		// A dguest with no labels will not match any PDB. So, no need to check.
-		if len(dguest.Labels) != 0 {
-			for i, pdb := range pdbs {
-				if pdb.Namespace != dguest.Namespace {
-					continue
-				}
-				selector, err := metav1.LabelSelectorAsSelector(pdb.Spec.Selector)
-				if err != nil {
-					// This object has an invalid selector, it does not match the dguest
-					continue
-				}
-				// A PDB with a nil or empty selector matches nothing.
-				if selector.Empty() || !selector.Matches(labels.Set(dguest.Labels)) {
-					continue
-				}
-
-				// Existing in DisruptedDguests means it has been processed in API server,
-				// we don't treat it as a violating case.
-				if _, exist := pdb.Status.DisruptedDguests[dguest.Name]; exist {
-					continue
-				}
-				// Only decrement the matched pdb when it's not in its <DisruptedDguests>;
-				// otherwise we may over-decrement the budget number.
-				pdbsAllowed[i]--
-				// We have found a matching PDB.
-				if pdbsAllowed[i] < 0 {
-					pdbForDguestIsViolated = true
-				}
-			}
-		}
-		if pdbForDguestIsViolated {
-			violatingDguestInfos = append(violatingDguestInfos, dguestInfo)
-		} else {
-			nonViolatingDguestInfos = append(nonViolatingDguestInfos, dguestInfo)
-		}
-	}
+func filterDguestsWithPDBViolation(dguestInfos []*framework.DguestInfo) (violatingDguestInfos, nonViolatingDguestInfos []*framework.DguestInfo) {
+	//pdbsAllowed := make([]int32, len(pdbs))
+	//for i, pdb := range pdbs {
+	//	pdbsAllowed[i] = pdb.Status.DisruptionsAllowed
+	//}
+	//
+	//for _, dguestInfo := range dguestInfos {
+	//	dguest := dguestInfo.Dguest
+	//	pdbForDguestIsViolated := false
+	//	// A dguest with no labels will not match any PDB. So, no need to check.
+	//	if len(dguest.Labels) != 0 {
+	//		for i, pdb := range pdbs {
+	//			if pdb.Namespace != dguest.Namespace {
+	//				continue
+	//			}
+	//			selector, err := metav1.LabelSelectorAsSelector(pdb.Spec.Selector)
+	//			if err != nil {
+	//				// This object has an invalid selector, it does not match the dguest
+	//				continue
+	//			}
+	//			// A PDB with a nil or empty selector matches nothing.
+	//			if selector.Empty() || !selector.Matches(labels.Set(dguest.Labels)) {
+	//				continue
+	//			}
+	//
+	//			// Existing in DisruptedDguests means it has been processed in API server,
+	//			// we don't treat it as a violating case.
+	//			if _, exist := pdb.Status.DisruptedDguests[dguest.Name]; exist {
+	//				continue
+	//			}
+	//			// Only decrement the matched pdb when it's not in its <DisruptedDguests>;
+	//			// otherwise we may over-decrement the budget number.
+	//			pdbsAllowed[i]--
+	//			// We have found a matching PDB.
+	//			if pdbsAllowed[i] < 0 {
+	//				pdbForDguestIsViolated = true
+	//			}
+	//		}
+	//	}
+	//	if pdbForDguestIsViolated {
+	//		violatingDguestInfos = append(violatingDguestInfos, dguestInfo)
+	//	} else {
+	//		nonViolatingDguestInfos = append(nonViolatingDguestInfos, dguestInfo)
+	//	}
+	//}
 	return violatingDguestInfos, nonViolatingDguestInfos
 }
 
-func getPDBLister(informerFactory informers.SharedInformerFactory) policylisters.DguestDisruptionBudgetLister {
-	return informerFactory.Policy().V1().DguestDisruptionBudgets().Lister()
-}
+//func getPDBLister(informerFactory informers.SharedInformerFactory) policylisters.DguestDisruptionBudgetLister {
+//	return informerFactory.Policy().V1().DguestDisruptionBudgets().Lister()
+//}

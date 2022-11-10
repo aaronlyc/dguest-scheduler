@@ -21,13 +21,15 @@ package framework
 import (
 	"context"
 	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
+	"dguest-scheduler/pkg/generated/clientset/versioned"
+	"dguest-scheduler/pkg/generated/informers/externalversions"
+	"dguest-scheduler/pkg/scheduler/apis/config/v1"
 	"errors"
 	"math"
 	"strings"
 	"sync"
 	"time"
 
-	"dguest-scheduler/pkg/scheduler/apis/config"
 	"dguest-scheduler/pkg/scheduler/framework/parallelize"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -569,7 +571,7 @@ type Framework interface {
 	HasScorePlugins() bool
 
 	// ListPlugins returns a map of extension point name to list of configured Plugins.
-	ListPlugins() *config.Plugins
+	ListPlugins() *v1.Plugins
 
 	// ProfileName returns the profile name associated to this framework.
 	ProfileName() string
@@ -612,6 +614,10 @@ type Handle interface {
 	EventRecorder() events.EventRecorder
 
 	SharedInformerFactory() informers.SharedInformerFactory
+
+	SchedulerClientSet() versioned.Interface
+
+	SchedulerInformerFactory() externalversions.SharedInformerFactory
 
 	// RunFilterPluginsWithNominatedDguests runs the set of configured filter plugins for nominated dguest on the given food.
 	RunFilterPluginsWithNominatedDguests(ctx context.Context, state *CycleState, dguest *v1alpha1.Dguest, info *FoodInfo) *Status

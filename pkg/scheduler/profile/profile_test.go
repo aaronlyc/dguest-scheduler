@@ -18,14 +18,14 @@ package profile
 
 import (
 	"context"
+	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
+	"dguest-scheduler/pkg/scheduler/apis/config/v1"
 	"fmt"
 	"strings"
 	"testing"
 
-	"dguest-scheduler/pkg/scheduler/apis/config"
 	"dguest-scheduler/pkg/scheduler/framework"
 	frameworkruntime "dguest-scheduler/pkg/scheduler/framework/runtime"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/events"
 )
@@ -40,22 +40,22 @@ var fakeRegistry = frameworkruntime.Registry{
 func TestNewMap(t *testing.T) {
 	cases := []struct {
 		name    string
-		cfgs    []config.KubeSchedulerProfile
+		cfgs    []v1.SchedulerProfile
 		wantErr string
 	}{
 		{
 			name: "valid",
-			cfgs: []config.KubeSchedulerProfile{
+			cfgs: []v1.SchedulerProfile{
 				{
 					SchedulerName: "profile-1",
-					Plugins: &config.Plugins{
-						QueueSort: config.PluginSet{
-							Enabled: []config.Plugin{
+					Plugins: &v1.Plugins{
+						QueueSort: v1.PluginSet{
+							Enabled: []v1.Plugin{
 								{Name: "QueueSort"},
 							},
 						},
-						Bind: config.PluginSet{
-							Enabled: []config.Plugin{
+						Bind: v1.PluginSet{
+							Enabled: []v1.Plugin{
 								{Name: "Bind1"},
 							},
 						},
@@ -63,19 +63,19 @@ func TestNewMap(t *testing.T) {
 				},
 				{
 					SchedulerName: "profile-2",
-					Plugins: &config.Plugins{
-						QueueSort: config.PluginSet{
-							Enabled: []config.Plugin{
+					Plugins: &v1.Plugins{
+						QueueSort: v1.PluginSet{
+							Enabled: []v1.Plugin{
 								{Name: "QueueSort"},
 							},
 						},
-						Bind: config.PluginSet{
-							Enabled: []config.Plugin{
+						Bind: v1.PluginSet{
+							Enabled: []v1.Plugin{
 								{Name: "Bind2"},
 							},
 						},
 					},
-					PluginConfig: []config.PluginConfig{
+					PluginConfig: []v1.PluginConfig{
 						{
 							Name: "Bind2",
 							Args: &runtime.Unknown{Raw: []byte("{}")},
@@ -86,17 +86,17 @@ func TestNewMap(t *testing.T) {
 		},
 		{
 			name: "different queue sort",
-			cfgs: []config.KubeSchedulerProfile{
+			cfgs: []v1.SchedulerProfile{
 				{
 					SchedulerName: "profile-1",
-					Plugins: &config.Plugins{
-						QueueSort: config.PluginSet{
-							Enabled: []config.Plugin{
+					Plugins: &v1.Plugins{
+						QueueSort: v1.PluginSet{
+							Enabled: []v1.Plugin{
 								{Name: "QueueSort"},
 							},
 						},
-						Bind: config.PluginSet{
-							Enabled: []config.Plugin{
+						Bind: v1.PluginSet{
+							Enabled: []v1.Plugin{
 								{Name: "Bind1"},
 							},
 						},
@@ -104,14 +104,14 @@ func TestNewMap(t *testing.T) {
 				},
 				{
 					SchedulerName: "profile-2",
-					Plugins: &config.Plugins{
-						QueueSort: config.PluginSet{
-							Enabled: []config.Plugin{
+					Plugins: &v1.Plugins{
+						QueueSort: v1.PluginSet{
+							Enabled: []v1.Plugin{
 								{Name: "Another"},
 							},
 						},
-						Bind: config.PluginSet{
-							Enabled: []config.Plugin{
+						Bind: v1.PluginSet{
+							Enabled: []v1.Plugin{
 								{Name: "Bind2"},
 							},
 						},
@@ -122,22 +122,22 @@ func TestNewMap(t *testing.T) {
 		},
 		{
 			name: "different queue sort args",
-			cfgs: []config.KubeSchedulerProfile{
+			cfgs: []v1.SchedulerProfile{
 				{
 					SchedulerName: "profile-1",
-					Plugins: &config.Plugins{
-						QueueSort: config.PluginSet{
-							Enabled: []config.Plugin{
+					Plugins: &v1.Plugins{
+						QueueSort: v1.PluginSet{
+							Enabled: []v1.Plugin{
 								{Name: "QueueSort"},
 							},
 						},
-						Bind: config.PluginSet{
-							Enabled: []config.Plugin{
+						Bind: v1.PluginSet{
+							Enabled: []v1.Plugin{
 								{Name: "Bind1"},
 							},
 						},
 					},
-					PluginConfig: []config.PluginConfig{
+					PluginConfig: []v1.PluginConfig{
 						{
 							Name: "QueueSort",
 							Args: &runtime.Unknown{Raw: []byte("{}")},
@@ -146,14 +146,14 @@ func TestNewMap(t *testing.T) {
 				},
 				{
 					SchedulerName: "profile-2",
-					Plugins: &config.Plugins{
-						QueueSort: config.PluginSet{
-							Enabled: []config.Plugin{
+					Plugins: &v1.Plugins{
+						QueueSort: v1.PluginSet{
+							Enabled: []v1.Plugin{
 								{Name: "QueueSort"},
 							},
 						},
-						Bind: config.PluginSet{
-							Enabled: []config.Plugin{
+						Bind: v1.PluginSet{
+							Enabled: []v1.Plugin{
 								{Name: "Bind2"},
 							},
 						},
@@ -164,17 +164,17 @@ func TestNewMap(t *testing.T) {
 		},
 		{
 			name: "duplicate scheduler name",
-			cfgs: []config.KubeSchedulerProfile{
+			cfgs: []v1.SchedulerProfile{
 				{
 					SchedulerName: "profile-1",
-					Plugins: &config.Plugins{
-						QueueSort: config.PluginSet{
-							Enabled: []config.Plugin{
+					Plugins: &v1.Plugins{
+						QueueSort: v1.PluginSet{
+							Enabled: []v1.Plugin{
 								{Name: "QueueSort"},
 							},
 						},
-						Bind: config.PluginSet{
-							Enabled: []config.Plugin{
+						Bind: v1.PluginSet{
+							Enabled: []v1.Plugin{
 								{Name: "Bind1"},
 							},
 						},
@@ -182,14 +182,14 @@ func TestNewMap(t *testing.T) {
 				},
 				{
 					SchedulerName: "profile-1",
-					Plugins: &config.Plugins{
-						QueueSort: config.PluginSet{
-							Enabled: []config.Plugin{
+					Plugins: &v1.Plugins{
+						QueueSort: v1.PluginSet{
+							Enabled: []v1.Plugin{
 								{Name: "QueueSort"},
 							},
 						},
-						Bind: config.PluginSet{
-							Enabled: []config.Plugin{
+						Bind: v1.PluginSet{
+							Enabled: []v1.Plugin{
 								{Name: "Bind2"},
 							},
 						},
@@ -200,16 +200,16 @@ func TestNewMap(t *testing.T) {
 		},
 		{
 			name: "scheduler name is needed",
-			cfgs: []config.KubeSchedulerProfile{
+			cfgs: []v1.SchedulerProfile{
 				{
-					Plugins: &config.Plugins{
-						QueueSort: config.PluginSet{
-							Enabled: []config.Plugin{
+					Plugins: &v1.Plugins{
+						QueueSort: v1.PluginSet{
+							Enabled: []v1.Plugin{
 								{Name: "QueueSort"},
 							},
 						},
-						Bind: config.PluginSet{
-							Enabled: []config.Plugin{
+						Bind: v1.PluginSet{
+							Enabled: []v1.Plugin{
 								{Name: "Bind1"},
 							},
 						},
@@ -220,7 +220,7 @@ func TestNewMap(t *testing.T) {
 		},
 		{
 			name: "plugins required for profile",
-			cfgs: []config.KubeSchedulerProfile{
+			cfgs: []v1.SchedulerProfile{
 				{
 					SchedulerName: "profile-1",
 				},
@@ -229,12 +229,12 @@ func TestNewMap(t *testing.T) {
 		},
 		{
 			name: "invalid framework configuration",
-			cfgs: []config.KubeSchedulerProfile{
+			cfgs: []v1.SchedulerProfile{
 				{
 					SchedulerName: "invalid-profile",
-					Plugins: &config.Plugins{
-						QueueSort: config.PluginSet{
-							Enabled: []config.Plugin{
+					Plugins: &v1.Plugins{
+						QueueSort: v1.PluginSet{
+							Enabled: []v1.Plugin{
 								{Name: "QueueSort"},
 							},
 						},

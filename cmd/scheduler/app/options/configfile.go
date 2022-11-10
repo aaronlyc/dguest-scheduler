@@ -1,19 +1,3 @@
-/*
-Copyright 2018 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package options
 
 import (
@@ -25,14 +9,13 @@ import (
 
 	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
 
-	"dguest-scheduler/pkg/scheduler/apis/config"
 	"dguest-scheduler/pkg/scheduler/apis/config/scheme"
 	configv1 "dguest-scheduler/pkg/scheduler/apis/config/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
 )
 
-func loadConfigFromFile(file string) (*config.SchedulerConfiguration, error) {
+func loadConfigFromFile(file string) (*configv1.SchedulerConfiguration, error) {
 	data, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
@@ -41,13 +24,11 @@ func loadConfigFromFile(file string) (*config.SchedulerConfiguration, error) {
 	return loadConfig(data)
 }
 
-func loadConfig(data []byte) (*config.SchedulerConfiguration, error) {
+func loadConfig(data []byte) (*configv1.SchedulerConfiguration, error) {
 	kc, err := decodeConfig(data)
 	if err != nil {
 		return nil, err
 	}
-
-	configv1.SetDefaults_KubeSchedulerConfiguration(kc)
 	return kc, nil
 
 	// The UniversalDecoder runs defaulting and returns the internal type by default.
@@ -70,13 +51,13 @@ func loadConfig(data []byte) (*config.SchedulerConfiguration, error) {
 	//return nil, fmt.Errorf("couldn't decode as SchedulerConfiguration, got %s: ", gvk)
 }
 
-func decodeConfig(data []byte) (*config.SchedulerConfiguration, error) {
+func decodeConfig(data []byte) (*configv1.SchedulerConfiguration, error) {
 	jsondata, err := utilyaml.ToJSON(data)
 	if err != nil {
 		return nil, err
 	}
 
-	result := config.SchedulerConfiguration{}
+	result := configv1.SchedulerConfiguration{}
 	err = json.Unmarshal(jsondata, &result)
 	if err != nil {
 		return nil, err
@@ -85,7 +66,7 @@ func decodeConfig(data []byte) (*config.SchedulerConfiguration, error) {
 	return &result, nil
 }
 
-func encodeConfig(cfg *config.SchedulerConfiguration) (*bytes.Buffer, error) {
+func encodeConfig(cfg *configv1.SchedulerConfiguration) (*bytes.Buffer, error) {
 	buf := new(bytes.Buffer)
 	const mediaType = runtime.ContentTypeYAML
 	info, ok := runtime.SerializerInfoForMediaType(scheme.Codecs.SupportedMediaTypes(), mediaType)
@@ -107,7 +88,7 @@ func encodeConfig(cfg *config.SchedulerConfiguration) (*bytes.Buffer, error) {
 }
 
 // LogOrWriteConfig logs the completed component config and writes it into the given file name as YAML, if either is enabled
-func LogOrWriteConfig(fileName string, cfg *config.SchedulerConfiguration, completedProfiles []config.KubeSchedulerProfile) error {
+func LogOrWriteConfig(fileName string, cfg *configv1.SchedulerConfiguration, completedProfiles []configv1.SchedulerProfile) error {
 	klogV := klog.V(0)
 	if !klogV.Enabled() && len(fileName) == 0 {
 		return nil

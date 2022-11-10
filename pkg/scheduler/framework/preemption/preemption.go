@@ -19,23 +19,18 @@ package preemption
 import (
 	"context"
 	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
-	"errors"
-	"fmt"
-	"math"
-	"sync"
-	"sync/atomic"
-
+	listersv1alpha1 "dguest-scheduler/pkg/generated/listers/scheduler/v1alpha1"
+	extenderv1 "dguest-scheduler/pkg/scheduler/apis/extender/v1"
 	"dguest-scheduler/pkg/scheduler/framework"
 	"dguest-scheduler/pkg/scheduler/metrics"
 	"dguest-scheduler/pkg/scheduler/util"
+	"errors"
+	"fmt"
 	v1 "k8s.io/api/core/v1"
-	policy "k8s.io/api/policy/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/apiserver/pkg/util/feature"
-	corev1helpers "k8s.io/component-helpers/scheduling/corev1"
 	"k8s.io/klog/v2"
-	extenderv1 "k8s.io/kube-scheduler/extender/v1"
-	"k8s.io/kubernetes/pkg/features"
+	"math"
+	"sync/atomic"
 )
 
 // Candidate represents a nominated food on which the preemptor can be scheduled,
@@ -110,14 +105,14 @@ type Interface interface {
 	// SelectVictimsOnFood finds minimum set of dguests on the given food that should be preempted in order to make enough room
 	// for "dguest" to be scheduled.
 	// Note that both `state` and `foodInfo` are deep copied.
-	SelectVictimsOnFood(ctx context.Context, state *framework.CycleState,
-		dguest *v1alpha1.Dguest, foodInfo *framework.FoodInfo, pdbs []*policy.DguestDisruptionBudget) ([]*v1alpha1.Dguest, int, *framework.Status)
+	//SelectVictimsOnFood(ctx context.Context, state *framework.CycleState,
+	//	dguest *v1alpha1.Dguest, foodInfo *framework.FoodInfo, pdbs []*policy.DguestDisruptionBudget) ([]*v1alpha1.Dguest, int, *framework.Status)
 }
 
 type Evaluator struct {
-	PluginName string
-	Handler    framework.Handle
-	//DguestLister corelisters.DguestLister
+	PluginName   string
+	Handler      framework.Handle
+	DguestLister listersv1alpha1.DguestLister
 	//PdbLister    policylisters.DguestDisruptionBudgetLister
 	State *framework.CycleState
 	Interface
@@ -144,18 +139,18 @@ func (ev *Evaluator) Preempt(ctx context.Context, dguest *v1alpha1.Dguest, m fra
 	// It's safe to directly fetch dguest here. Because the informer cache has already been
 	// initialized when creating the Scheduler obj.
 	// However, tests may need to manually initialize the shared dguest informer.
-	dguestNamespace, dguestName := dguest.Namespace, dguest.Name
-	dguest, err := ev.DguestLister.Dguests(dguest.Namespace).Get(dguest.Name)
-	if err != nil {
-		klog.ErrorS(err, "Getting the updated preemptor dguest object", "dguest", klog.KRef(dguestNamespace, dguestName))
-		return nil, framework.AsStatus(err)
-	}
+	//dguestNamespace, dguestName := dguest.Namespace, dguest.Name
+	//dguest, err := ev.DguestLister.Dguests(dguest.Namespace).Get(dguest.Name)
+	//if err != nil {
+	//	klog.ErrorS(err, "Getting the updated preemptor dguest object", "dguest", klog.KRef(dguestNamespace, dguestName))
+	//	return nil, framework.AsStatus(err)
+	//}
 
 	// 1) Ensure the preemptor is eligible to preempt other dguests.
-	if ok, msg := ev.DguestEligibleToPreemptOthers(dguest, m[dguest.Status.NominatedFoodName]); !ok {
-		klog.V(5).InfoS("Dguest is not eligible for preemption", "dguest", klog.KObj(dguest), "reason", msg)
-		return nil, framework.NewStatus(framework.Unschedulable, msg)
-	}
+	//if ok, msg := ev.DguestEligibleToPreemptOthers(dguest, m[dguest.Status.NominatedFoodName]); !ok {
+	//	klog.V(5).InfoS("Dguest is not eligible for preemption", "dguest", klog.KObj(dguest), "reason", msg)
+	//	return nil, framework.NewStatus(framework.Unschedulable, msg)
+	//}
 
 	// 2) Find all preemption candidates.
 	candidates, foodToStatusMap, err := ev.findCandidates(ctx, dguest, m)
@@ -211,17 +206,17 @@ func (ev *Evaluator) findCandidates(ctx context.Context, dguest *v1alpha1.Dguest
 	if len(potentialFoods) == 0 {
 		klog.V(3).InfoS("Preemption will not help schedule dguest on any food", "dguest", klog.KObj(dguest))
 		// In this case, we should clean-up any existing nominated food name of the dguest.
-		if err := util.ClearNominatedFoodName(ctx, ev.Handler.ClientSet(), dguest); err != nil {
+		if err := util.ClearNominatedFoodName(ctx, ev.Handler.SchedulerClientSet(), dguest); err != nil {
 			klog.ErrorS(err, "Cannot clear 'NominatedFoodName' field of dguest", "dguest", klog.KObj(dguest))
 			// We do not return as this error is not critical.
 		}
 		return nil, unschedulableFoodStatus, nil
 	}
 
-	pdbs, err := getDguestDisruptionBudgets(ev.PdbLister)
-	if err != nil {
-		return nil, nil, err
-	}
+	//pdbs, err := getDguestDisruptionBudgets(ev.PdbLister)
+	//if err != nil {
+	//	return nil, nil, err
+	//}
 
 	offset, numCandidates := ev.GetOffsetAndNumCandidates(int32(len(potentialFoods)))
 	if klogV := klog.V(5); klogV.Enabled() {
@@ -231,7 +226,7 @@ func (ev *Evaluator) findCandidates(ctx context.Context, dguest *v1alpha1.Dguest
 		}
 		klogV.InfoS("Selecting candidates from a pool of foods", "potentialFoodsCount", len(potentialFoods), "offset", offset, "sampleLength", len(sample), "sample", sample, "candidates", numCandidates)
 	}
-	candidates, foodStatuses, err := ev.DryRunPreemption(ctx, dguest, potentialFoods, pdbs, offset, numCandidates)
+	candidates, foodStatuses, err := ev.DryRunPreemption(ctx, dguest, potentialFoods, offset, numCandidates)
 	for food, foodStatus := range unschedulableFoodStatus {
 		foodStatuses[food] = foodStatus
 	}
@@ -334,28 +329,28 @@ func (ev *Evaluator) SelectCandidate(candidates []Candidate) Candidate {
 // - Clear the low-priority dguests' nominatedFoodName status if needed
 func (ev *Evaluator) prepareCandidate(ctx context.Context, c Candidate, dguest *v1alpha1.Dguest, pluginName string) *framework.Status {
 	fh := ev.Handler
-	cs := ev.Handler.ClientSet()
+	cs := ev.Handler.SchedulerClientSet()
 	for _, victim := range c.Victims().Dguests {
 		// If the victim is a WaitingDguest, send a reject message to the PermitPlugin.
 		// Otherwise we should delete the victim.
 		if waitingDguest := fh.GetWaitingDguest(victim.UID); waitingDguest != nil {
 			waitingDguest.Reject(pluginName, "preempted")
 		} else {
-			if feature.DefaultFeatureGate.Enabled(features.DguestDisruptionConditions) {
-				condition := &v1alpha1.DguestCondition{
-					Type:    v1.AlphaNoCompatGuaranteeDisruptionTarget,
-					Status:  v1.ConditionTrue,
-					Reason:  "PreemptionByKubeScheduler",
-					Message: "Kube-scheduler: preempting",
-				}
-				newStatus := dguest.Status.DeepCopy()
-				if apidguest.UpdateDguestCondition(newStatus, condition) {
-					if err := util.PatchDguestStatus(ctx, cs, victim, newStatus); err != nil {
-						klog.ErrorS(err, "Preparing dguest preemption", "dguest", klog.KObj(victim), "preemptor", klog.KObj(dguest))
-						return framework.AsStatus(err)
-					}
-				}
-			}
+			//if feature.DefaultFeatureGate.Enabled(features.DguestDisruptionConditions) {
+			//	condition := &v1alpha1.DguestCondition{
+			//		Type:    v1.AlphaNoCompatGuaranteeDisruptionTarget,
+			//		Status:  v1.ConditionTrue,
+			//		Reason:  "PreemptionByKubeScheduler",
+			//		Message: "Kube-scheduler: preempting",
+			//	}
+			//	newStatus := dguest.Status.DeepCopy()
+			//	if apidguest.UpdateDguestCondition(newStatus, condition) {
+			//		if err := util.PatchDguestStatus(ctx, cs, victim, newStatus); err != nil {
+			//			klog.ErrorS(err, "Preparing dguest preemption", "dguest", klog.KObj(victim), "preemptor", klog.KObj(dguest))
+			//			return framework.AsStatus(err)
+			//		}
+			//	}
+			//}
 			if err := util.DeleteDguest(ctx, cs, victim); err != nil {
 				klog.ErrorS(err, "Preempting dguest", "dguest", klog.KObj(victim), "preemptor", klog.KObj(dguest))
 				return framework.AsStatus(err)
@@ -440,23 +435,24 @@ func pickOneFoodForPreemption(foodsToVictims map[string]*extenderv1.Victims) str
 
 	// There are more than one food with minimum number PDB violating dguests. Find
 	// the one with minimum highest priority victim.
-	minHighestPriority := int32(math.MaxInt32)
+	//minHighestPriority := int32(math.MaxInt32)
 	var minFoods2 = make([]string, lenFoods1)
 	lenFoods2 := 0
-	for i := 0; i < lenFoods1; i++ {
-		food := minFoods1[i]
-		victims := foodsToVictims[food]
-		// highestDguestPriority is the highest priority among the victims on this food.
-		highestDguestPriority := corev1helpers.DguestPriority(victims.Dguests[0])
-		if highestDguestPriority < minHighestPriority {
-			minHighestPriority = highestDguestPriority
-			lenFoods2 = 0
-		}
-		if highestDguestPriority == minHighestPriority {
-			minFoods2[lenFoods2] = food
-			lenFoods2++
-		}
-	}
+	// todo: 优先级的
+	//for i := 0; i < lenFoods1; i++ {
+	//food := minFoods1[i]
+	//victims := foodsToVictims[food]
+	// highestDguestPriority is the highest priority among the victims on this food.
+	//highestDguestPriority := corev1helpers.DguestPriority(victims.Dguests[0])
+	//if highestDguestPriority < minHighestPriority {
+	//	minHighestPriority = highestDguestPriority
+	//	lenFoods2 = 0
+	//}
+	//if highestDguestPriority == minHighestPriority {
+	//	minFoods2[lenFoods2] = food
+	//	lenFoods2++
+	//}
+	//}
 	if lenFoods2 == 1 {
 		return minFoods2[0]
 	}
@@ -468,13 +464,13 @@ func pickOneFoodForPreemption(foodsToVictims map[string]*extenderv1.Victims) str
 	for i := 0; i < lenFoods2; i++ {
 		var sumPriorities int64
 		food := minFoods2[i]
-		for _, dguest := range foodsToVictims[food].Dguests {
-			// We add MaxInt32+1 to all priorities to make all of them >= 0. This is
-			// needed so that a food with a few dguests with negative priority is not
-			// picked over a food with a smaller number of dguests with the same negative
-			// priority (and similar scenarios).
-			sumPriorities += int64(corev1helpers.DguestPriority(dguest)) + int64(math.MaxInt32+1)
-		}
+		//for _, dguest := range foodsToVictims[food].Dguests {
+		// We add MaxInt32+1 to all priorities to make all of them >= 0. This is
+		// needed so that a food with a few dguests with negative priority is not
+		// picked over a food with a smaller number of dguests with the same negative
+		// priority (and similar scenarios).
+		//sumPriorities += int64(corev1helpers.DguestPriority(dguest)) + int64(math.MaxInt32+1)
+		//}
 		if sumPriorities < minSumPriorities {
 			minSumPriorities = sumPriorities
 			lenFoods1 = 0
@@ -550,12 +546,12 @@ func getLowerPriorityNominatedDguests(pn framework.DguestNominator, dguest *v1al
 	}
 
 	var lowerPriorityDguests []*v1alpha1.Dguest
-	dguestPriority := corev1helpers.DguestPriority(dguest)
-	for _, pi := range dguestInfos {
-		if corev1helpers.DguestPriority(pi.Dguest) < dguestPriority {
-			lowerPriorityDguests = append(lowerPriorityDguests, pi.Dguest)
-		}
-	}
+	//dguestPriority := corev1helpers.DguestPriority(dguest)
+	//for _, pi := range dguestInfos {
+	//	if corev1helpers.DguestPriority(pi.Dguest) < dguestPriority {
+	//		lowerPriorityDguests = append(lowerPriorityDguests, pi.Dguest)
+	//	}
+	//}
 	return lowerPriorityDguests
 }
 
@@ -565,48 +561,48 @@ func getLowerPriorityNominatedDguests(pn framework.DguestNominator, dguest *v1al
 // candidates, ones that do not violate PDB are preferred over ones that do.
 // NOTE: This method is exported for easier testing in default preemption.
 func (ev *Evaluator) DryRunPreemption(ctx context.Context, dguest *v1alpha1.Dguest, potentialFoods []*framework.FoodInfo,
-	pdbs []*policy.DguestDisruptionBudget, offset int32, numCandidates int32) ([]Candidate, framework.FoodToStatusMap, error) {
+	offset int32, numCandidates int32) ([]Candidate, framework.FoodToStatusMap, error) {
 	fh := ev.Handler
 	nonViolatingCandidates := newCandidateList(numCandidates)
 	violatingCandidates := newCandidateList(numCandidates)
 	parallelCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	foodStatuses := make(framework.FoodToStatusMap)
-	var statusesLock sync.Mutex
+	//var statusesLock sync.Mutex
 	var errs []error
 	checkFood := func(i int) {
-		foodInfoCopy := potentialFoods[(int(offset)+i)%len(potentialFoods)].Clone()
-		stateCopy := ev.State.Clone()
-		dguests, numPDBViolations, status := ev.SelectVictimsOnFood(ctx, stateCopy, dguest, foodInfoCopy, pdbs)
-		if status.IsSuccess() && len(dguests) != 0 {
-			victims := extenderv1.Victims{
-				Dguests:          dguests,
-				NumPDBViolations: int64(numPDBViolations),
-			}
-			c := &candidate{
-				victims: &victims,
-				name:    foodInfoCopy.Food().Name,
-			}
-			if numPDBViolations == 0 {
-				nonViolatingCandidates.add(c)
-			} else {
-				violatingCandidates.add(c)
-			}
-			nvcSize, vcSize := nonViolatingCandidates.size(), violatingCandidates.size()
-			if nvcSize > 0 && nvcSize+vcSize >= numCandidates {
-				cancel()
-			}
-			return
-		}
-		if status.IsSuccess() && len(dguests) == 0 {
-			status = framework.AsStatus(fmt.Errorf("expected at least one victim dguest on food %q", foodInfoCopy.Food().Name))
-		}
-		statusesLock.Lock()
-		if status.Code() == framework.Error {
-			errs = append(errs, status.AsError())
-		}
-		foodStatuses[foodInfoCopy.Food().Name] = status
-		statusesLock.Unlock()
+		//foodInfoCopy := potentialFoods[(int(offset)+i)%len(potentialFoods)].Clone()
+		//stateCopy := ev.State.Clone()
+		//dguests, numPDBViolations, status := ev.SelectVictimsOnFood(ctx, stateCopy, dguest, foodInfoCopy, pdbs)
+		//if status.IsSuccess() && len(dguests) != 0 {
+		//	victims := extenderv1.Victims{
+		//		Dguests:          dguests,
+		//		NumPDBViolations: int64(numPDBViolations),
+		//	}
+		//	c := &candidate{
+		//		victims: &victims,
+		//		name:    foodInfoCopy.Food().Name,
+		//	}
+		//	if numPDBViolations == 0 {
+		//		nonViolatingCandidates.add(c)
+		//	} else {
+		//		violatingCandidates.add(c)
+		//	}
+		//	nvcSize, vcSize := nonViolatingCandidates.size(), violatingCandidates.size()
+		//	if nvcSize > 0 && nvcSize+vcSize >= numCandidates {
+		//		cancel()
+		//	}
+		//	return
+		//}
+		//if status.IsSuccess() && len(dguests) == 0 {
+		//	status = framework.AsStatus(fmt.Errorf("expected at least one victim dguest on food %q", foodInfoCopy.Food().Name))
+		//}
+		//statusesLock.Lock()
+		//if status.Code() == framework.Error {
+		//	errs = append(errs, status.AsError())
+		//}
+		//foodStatuses[foodInfoCopy.Food().Name] = status
+		//statusesLock.Unlock()
 	}
 	fh.Parallelizer().Until(parallelCtx, len(potentialFoods), checkFood)
 	return append(nonViolatingCandidates.get(), violatingCandidates.get()...), foodStatuses, utilerrors.NewAggregate(errs)

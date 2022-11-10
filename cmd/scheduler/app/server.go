@@ -19,6 +19,8 @@ package app
 
 import (
 	"context"
+	"dguest-scheduler/pkg/generated/informers/externalversions"
+	kubeschedulerconfig "dguest-scheduler/pkg/scheduler/apis/config/v1"
 	"fmt"
 	"k8s.io/klog/v2"
 	"net/http"
@@ -30,7 +32,6 @@ import (
 	schedulerserverconfig "dguest-scheduler/cmd/scheduler/app/config"
 	"dguest-scheduler/cmd/scheduler/app/options"
 	"dguest-scheduler/pkg/scheduler"
-	kubeschedulerconfig "dguest-scheduler/pkg/scheduler/apis/config"
 	"dguest-scheduler/pkg/scheduler/apis/config/latest"
 	"dguest-scheduler/pkg/scheduler/framework/runtime"
 	"dguest-scheduler/pkg/scheduler/metrics/resources"
@@ -47,7 +48,6 @@ import (
 	"k8s.io/apiserver/pkg/server/mux"
 	"k8s.io/apiserver/pkg/server/routes"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/events"
 	"k8s.io/client-go/tools/leaderelection"
@@ -180,7 +180,7 @@ func Run(ctx context.Context, cc *schedulerserverconfig.CompletedConfig, sched *
 
 	// Start up the healthz server.
 	if cc.SecureServing != nil {
-		handler := buildHandlerChain(newHealthzAndMetricsHandler(&cc.ComponentConfig, cc.InformerFactory, isLeader, checks...), cc.Authentication.Authenticator, cc.Authorization.Authorizer)
+		handler := buildHandlerChain(newHealthzAndMetricsHandler(&cc.ComponentConfig, cc.SchedulerInformerFactory, isLeader, checks...), cc.Authentication.Authenticator, cc.Authorization.Authorizer)
 		// TODO: handle stoppedCh and listenerStoppedCh returned by c.SecureServing.Serve
 		if _, _, err := cc.SecureServing.Serve(handler, 0, ctx.Done()); err != nil {
 			// fail early for secure handlers, removing the old error loop from above
@@ -189,18 +189,18 @@ func Run(ctx context.Context, cc *schedulerserverconfig.CompletedConfig, sched *
 	}
 
 	// Start all informers.
-	cc.InformerFactory.Start(ctx.Done())
+	cc.SchedulerInformerFactory.Start(ctx.Done())
 	// DynInformerFactory can be nil in tests.
-	if cc.DynInformerFactory != nil {
-		cc.DynInformerFactory.Start(ctx.Done())
-	}
+	//if cc.DynInformerFactory != nil {
+	//	cc.DynInformerFactory.Start(ctx.Done())
+	//}
 
 	// Wait for all caches to sync before scheduling.
-	cc.InformerFactory.WaitForCacheSync(ctx.Done())
+	cc.SchedulerInformerFactory.WaitForCacheSync(ctx.Done())
 	// DynInformerFactory can be nil in tests.
-	if cc.DynInformerFactory != nil {
-		cc.DynInformerFactory.WaitForCacheSync(ctx.Done())
-	}
+	//if cc.DynInformerFactory != nil {
+	//	cc.DynInformerFactory.WaitForCacheSync(ctx.Done())
+	//}
 
 	// If leader election is enabled, runCommand via LeaderElector until done and exit.
 	if cc.LeaderElection != nil {
@@ -253,11 +253,11 @@ func buildHandlerChain(handler http.Handler, authn authenticator.Request, authz 
 	return handler
 }
 
-func installMetricHandler(pathRecorderMux *mux.PathRecorderMux, informers informers.SharedInformerFactory, isLeader func() bool) {
+func installMetricHandler(pathRecorderMux *mux.PathRecorderMux, informers externalversions.SharedInformerFactory, isLeader func() bool) {
 	configz.InstallHandler(pathRecorderMux)
 	pathRecorderMux.Handle("/metrics", legacyregistry.HandlerWithReset())
 
-	resourceMetricsHandler := resources.Handler(informers.Core().V1().Dguests().Lister())
+	resourceMetricsHandler := resources.Handler(informers.Scheduler().V1alpha1().Dguests().Lister())
 	pathRecorderMux.HandleFunc("/metrics/resources", func(w http.ResponseWriter, req *http.Request) {
 		if !isLeader() {
 			return
@@ -268,7 +268,7 @@ func installMetricHandler(pathRecorderMux *mux.PathRecorderMux, informers inform
 
 // newHealthzAndMetricsHandler creates a healthz server from the config, and will also
 // embed the metrics handler.
-func newHealthzAndMetricsHandler(config *kubeschedulerconfig.SchedulerConfiguration, informers informers.SharedInformerFactory, isLeader func() bool, checks ...healthz.HealthChecker) http.Handler {
+func newHealthzAndMetricsHandler(config *kubeschedulerconfig.SchedulerConfiguration, informers externalversions.SharedInformerFactory, isLeader func() bool, checks ...healthz.HealthChecker) http.Handler {
 	pathRecorderMux := mux.NewPathRecorderMux("kube-scheduler")
 	healthz.InstallHandler(pathRecorderMux, checks...)
 	installMetricHandler(pathRecorderMux, informers, isLeader)
@@ -324,11 +324,10 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
 	}
 
 	recorderFactory := getRecorderFactory(&cc)
-	completedProfiles := make([]kubeschedulerconfig.KubeSchedulerProfile, 0)
+	completedProfiles := make([]kubeschedulerconfig.SchedulerProfile, 0)
 	// Create the scheduler.
-	sched, err := scheduler.New(cc.Client,
-		cc.InformerFactory,
-		cc.DynInformerFactory,
+	sched, err := scheduler.New(cc.SchedulerClientSet,
+		cc.SchedulerInformerFactory,
 		recorderFactory,
 		ctx.Done(),
 		scheduler.WithComponentConfigVersion(cc.ComponentConfig.TypeMeta.APIVersion),
@@ -341,7 +340,7 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
 		scheduler.WithDguestMaxInUnschedulableDguestsDuration(cc.DguestMaxInUnschedulableDguestsDuration),
 		//scheduler.WithExtenders(cc.ComponentConfig.Extenders...),
 		scheduler.WithParallelism(cc.ComponentConfig.Parallelism),
-		scheduler.WithBuildFrameworkCapturer(func(profile kubeschedulerconfig.KubeSchedulerProfile) {
+		scheduler.WithBuildFrameworkCapturer(func(profile kubeschedulerconfig.SchedulerProfile) {
 			// Profiles are processed during Framework instantiation to set default plugins and configurations. Capturing them for logging
 			completedProfiles = append(completedProfiles, profile)
 		}),

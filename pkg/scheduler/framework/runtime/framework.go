@@ -1,33 +1,19 @@
-/*
-Copyright 2019 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package runtime
 
 import (
 	"context"
+	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
+	"dguest-scheduler/pkg/generated/clientset/versioned"
+	"dguest-scheduler/pkg/generated/informers/externalversions"
+	"dguest-scheduler/pkg/scheduler/apis/config/v1"
 	"fmt"
 	"reflect"
 	"sort"
 	"time"
 
-	"dguest-scheduler/pkg/scheduler/apis/config"
 	"dguest-scheduler/pkg/scheduler/framework"
 	"dguest-scheduler/pkg/scheduler/framework/parallelize"
 	"dguest-scheduler/pkg/scheduler/metrics"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -35,7 +21,6 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/events"
-	"k8s.io/component-helpers/scheduling/corev1"
 	"k8s.io/klog/v2"
 )
 
@@ -62,7 +47,7 @@ const (
 var allClusterEvents = []framework.ClusterEvent{
 	{Resource: framework.Dguest, ActionType: framework.All},
 	{Resource: framework.Food, ActionType: framework.All},
-	{Resource: framework.CSIFood, ActionType: framework.All},
+	//{Resource: framework.CSIFood, ActionType: framework.All},
 	{Resource: framework.PersistentVolume, ActionType: framework.All},
 	{Resource: framework.PersistentVolumeClaim, ActionType: framework.All},
 	{Resource: framework.StorageClass, ActionType: framework.All},
@@ -106,13 +91,13 @@ type frameworkImpl struct {
 // frameworkImpl.
 type extensionPoint struct {
 	// the set of plugins to be configured at this extension point.
-	plugins *config.PluginSet
+	plugins *v1.PluginSet
 	// a pointer to the slice storing plugins implementations that will run at this
 	// extension point.
 	slicePtr interface{}
 }
 
-func (f *frameworkImpl) getExtensionPoints(plugins *config.Plugins) []extensionPoint {
+func (f *frameworkImpl) getExtensionPoints(plugins *v1.Plugins) []extensionPoint {
 	return []extensionPoint{
 		{&plugins.PreFilter, &f.preFilterPlugins},
 		{&plugins.Filter, &f.filterPlugins},
@@ -134,18 +119,20 @@ func (f *frameworkImpl) Extenders() []framework.Extender {
 }
 
 type frameworkOptions struct {
-	componentConfigVersion string
-	clientSet              clientset.Interface
-	kubeConfig             *restclient.Config
-	eventRecorder          events.EventRecorder
-	informerFactory        informers.SharedInformerFactory
-	snapshotSharedLister   framework.SharedLister
-	metricsRecorder        *metricsRecorder
-	dguestNominator        framework.DguestNominator
-	extenders              []framework.Extender
-	captureProfile         CaptureProfile
-	clusterEventMap        map[framework.ClusterEvent]sets.String
-	parallelizer           parallelize.Parallelizer
+	componentConfigVersion   string
+	clientSet                clientset.Interface
+	kubeConfig               *restclient.Config
+	eventRecorder            events.EventRecorder
+	informerFactory          informers.SharedInformerFactory
+	schedulerClientSet       versioned.Interface
+	schedulerInformerFactory externalversions.SharedInformerFactory
+	snapshotSharedLister     framework.SharedLister
+	metricsRecorder          *metricsRecorder
+	dguestNominator          framework.DguestNominator
+	extenders                []framework.Extender
+	captureProfile           CaptureProfile
+	clusterEventMap          map[framework.ClusterEvent]sets.String
+	parallelizer             parallelize.Parallelizer
 }
 
 // Option for the frameworkImpl.
@@ -165,6 +152,18 @@ func WithComponentConfigVersion(componentConfigVersion string) Option {
 func WithClientSet(clientSet clientset.Interface) Option {
 	return func(o *frameworkOptions) {
 		o.clientSet = clientSet
+	}
+}
+
+func WithSchedulerClientSet(clientSet versioned.Interface) Option {
+	return func(o *frameworkOptions) {
+		o.schedulerClientSet = clientSet
+	}
+}
+
+func WithSchedulerInformerFactory(informerFactory externalversions.SharedInformerFactory) Option {
+	return func(o *frameworkOptions) {
+		o.schedulerInformerFactory = informerFactory
 	}
 }
 
@@ -218,7 +217,7 @@ func WithParallelism(parallelism int) Option {
 }
 
 // CaptureProfile is a callback to capture a finalized profile.
-type CaptureProfile func(config.KubeSchedulerProfile)
+type CaptureProfile func(v1.SchedulerProfile)
 
 // WithCaptureProfile sets a callback to capture the finalized profile.
 func WithCaptureProfile(c CaptureProfile) Option {
@@ -245,7 +244,7 @@ func WithClusterEventMap(m map[framework.ClusterEvent]sets.String) Option {
 var _ framework.Framework = &frameworkImpl{}
 
 // NewFramework initializes plugins given the configuration and the registry.
-func NewFramework(r Registry, profile *config.KubeSchedulerProfile, stopCh <-chan struct{}, opts ...Option) (framework.Framework, error) {
+func NewFramework(r Registry, profile *v1.SchedulerProfile, stopCh <-chan struct{}, opts ...Option) (framework.Framework, error) {
 	options := defaultFrameworkOptions(stopCh)
 	for _, opt := range opts {
 		opt(&options)
@@ -286,10 +285,10 @@ func NewFramework(r Registry, profile *config.KubeSchedulerProfile, stopCh <-cha
 		}
 		pluginConfig[name] = profile.PluginConfig[i].Args
 	}
-	outputProfile := config.KubeSchedulerProfile{
+	outputProfile := v1.SchedulerProfile{
 		SchedulerName: f.profileName,
 		Plugins:       profile.Plugins,
-		PluginConfig:  make([]config.PluginConfig, 0, len(pg)),
+		PluginConfig:  make([]v1.PluginConfig, 0, len(pg)),
 	}
 
 	pluginsMap := make(map[string]framework.Plugin)
@@ -301,7 +300,7 @@ func NewFramework(r Registry, profile *config.KubeSchedulerProfile, stopCh <-cha
 
 		args := pluginConfig[name]
 		if args != nil {
-			outputProfile.PluginConfig = append(outputProfile.PluginConfig, config.PluginConfig{
+			outputProfile.PluginConfig = append(outputProfile.PluginConfig, v1.PluginConfig{
 				Name: name,
 				Args: args,
 			})
@@ -365,7 +364,7 @@ func NewFramework(r Registry, profile *config.KubeSchedulerProfile, stopCh <-cha
 
 // getScoreWeights makes sure that, between MultiPoint-Score plugin weights and individual Score
 // plugin weights there is not an overflow of MaxTotalScore.
-func getScoreWeights(f *frameworkImpl, pluginsMap map[string]framework.Plugin, plugins []config.Plugin) error {
+func getScoreWeights(f *frameworkImpl, pluginsMap map[string]framework.Plugin, plugins []v1.Plugin) error {
 	var totalPriority int64
 	scorePlugins := reflect.ValueOf(&f.scorePlugins).Elem()
 	pluginType := scorePlugins.Type().Elem()
@@ -427,7 +426,7 @@ func (os *orderedSet) delete(s string) {
 	}
 }
 
-func (f *frameworkImpl) expandMultiPointPlugins(profile *config.KubeSchedulerProfile, pluginsMap map[string]framework.Plugin) error {
+func (f *frameworkImpl) expandMultiPointPlugins(profile *v1.SchedulerProfile, pluginsMap map[string]framework.Plugin) error {
 	// initialize MultiPoint plugins
 	for _, e := range f.getExtensionPoints(profile.Plugins) {
 		plugins := reflect.ValueOf(e.slicePtr).Elem()
@@ -545,7 +544,7 @@ func registerClusterEvents(name string, eventToPlugins map[framework.ClusterEven
 	}
 }
 
-func updatePluginList(pluginList interface{}, pluginSet config.PluginSet, pluginsMap map[string]framework.Plugin) error {
+func updatePluginList(pluginList interface{}, pluginSet v1.PluginSet, pluginsMap map[string]framework.Plugin) error {
 	plugins := reflect.ValueOf(pluginList).Elem()
 	pluginType := plugins.Type().Elem()
 	set := sets.NewString()
@@ -621,6 +620,16 @@ func (f *frameworkImpl) RunPreFilterPlugins(ctx context.Context, state *framewor
 
 	}
 	return result, nil
+}
+
+func (f *frameworkImpl) SchedulerClientSet() versioned.Interface {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (f *frameworkImpl) SchedulerInformerFactory() externalversions.SharedInformerFactory {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (f *frameworkImpl) runPreFilterPlugin(ctx context.Context, pl framework.PreFilterPlugin, state *framework.CycleState, dguest *v1alpha1.Dguest) (*framework.PreFilterResult, *framework.Status) {
@@ -848,16 +857,16 @@ func addNominatedDguests(ctx context.Context, fh framework.Handle, dguest *v1alp
 	foodInfoOut := foodInfo.Clone()
 	stateOut := state.Clone()
 	dguestsAdded := false
-	for _, pi := range nominatedDguestInfos {
-		if corev1alpha1.DguestPriority(pi.Dguest) >= corev1alpha1.DguestPriority(dguest) && pi.Dguest.UID != dguest.UID {
-			foodInfoOut.AddDguestInfo(pi)
-			status := fh.RunPreFilterExtensionAddDguest(ctx, stateOut, dguest, pi, foodInfoOut)
-			if !status.IsSuccess() {
-				return false, state, foodInfo, status.AsError()
-			}
-			dguestsAdded = true
-		}
-	}
+	//for _, pi := range nominatedDguestInfos {
+	//	if corev1alpha1.DguestPriority(pi.Dguest) >= corev1alpha1.DguestPriority(dguest) && pi.Dguest.UID != dguest.UID {
+	//		foodInfoOut.AddDguestInfo(pi)
+	//		status := fh.RunPreFilterExtensionAddDguest(ctx, stateOut, dguest, pi, foodInfoOut)
+	//		if !status.IsSuccess() {
+	//			return false, state, foodInfo, status.AsError()
+	//		}
+	//		dguestsAdded = true
+	//	}
+	//}
 	return dguestsAdded, stateOut, foodInfoOut, nil
 }
 
@@ -1259,16 +1268,16 @@ func (f *frameworkImpl) HasScorePlugins() bool {
 
 // ListPlugins returns a map of extension point name to plugin names configured at each extension
 // point. Returns nil if no plugins where configured.
-func (f *frameworkImpl) ListPlugins() *config.Plugins {
-	m := config.Plugins{}
+func (f *frameworkImpl) ListPlugins() *v1.Plugins {
+	m := v1.Plugins{}
 
 	for _, e := range f.getExtensionPoints(&m) {
 		plugins := reflect.ValueOf(e.slicePtr).Elem()
 		extName := plugins.Type().Elem().Name()
-		var cfgs []config.Plugin
+		var cfgs []v1.Plugin
 		for i := 0; i < plugins.Len(); i++ {
 			name := plugins.Index(i).Interface().(framework.Plugin).Name()
-			p := config.Plugin{Name: name}
+			p := v1.Plugin{Name: name}
 			if extName == "ScorePlugin" {
 				// Weights apply only to score plugins.
 				p.Weight = int32(f.scorePluginWeight[name])
@@ -1302,14 +1311,14 @@ func (f *frameworkImpl) SharedInformerFactory() informers.SharedInformerFactory 
 	return f.informerFactory
 }
 
-func (f *frameworkImpl) pluginsNeeded(plugins *config.Plugins) sets.String {
+func (f *frameworkImpl) pluginsNeeded(plugins *v1.Plugins) sets.String {
 	pgSet := sets.String{}
 
 	if plugins == nil {
 		return pgSet
 	}
 
-	find := func(pgs *config.PluginSet) {
+	find := func(pgs *v1.PluginSet) {
 		for _, pg := range pgs.Enabled {
 			pgSet.Insert(pg.Name)
 		}

@@ -27,22 +27,22 @@ limitations under the License.
 package queue
 
 import (
+	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
+	"dguest-scheduler/pkg/generated/informers/externalversions"
 	"fmt"
 	"reflect"
 	"sync"
 	"time"
 
+	listersv1alpha1 "dguest-scheduler/pkg/generated/listers/scheduler/v1alpha1"
 	"dguest-scheduler/pkg/scheduler/framework"
-	"dguest-scheduler/pkg/scheduler/framework/plugins/interdguestaffinity"
 	"dguest-scheduler/pkg/scheduler/internal/heap"
 	"dguest-scheduler/pkg/scheduler/metrics"
 	"dguest-scheduler/pkg/scheduler/util"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/informers"
 	listersv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
@@ -113,14 +113,15 @@ type SchedulingQueue interface {
 // NewSchedulingQueue initializes a priority queue as a new scheduling queue.
 func NewSchedulingQueue(
 	lessFn framework.LessFunc,
-	informerFactory informers.SharedInformerFactory,
+	schedulerInformerFactory externalversions.SharedInformerFactory,
 	opts ...Option) SchedulingQueue {
-	return NewPriorityQueue(lessFn, informerFactory, opts...)
+	return NewPriorityQueue(lessFn, schedulerInformerFactory, opts...)
 }
 
 // NominatedFoodName returns nominated food name of a Dguest.
 func NominatedFoodName(dguest *v1alpha1.Dguest) string {
-	return dguest.Status.NominatedFoodName
+	//return dguest.Status.NominatedFoodName
+	return ""
 }
 
 // PriorityQueue implements a scheduling queue.
@@ -252,7 +253,7 @@ func newQueuedDguestInfoForLookup(dguest *v1alpha1.Dguest, plugins ...string) *f
 // NewPriorityQueue creates a PriorityQueue object.
 func NewPriorityQueue(
 	lessFn framework.LessFunc,
-	informerFactory informers.SharedInformerFactory,
+	schedulerInformerFactory externalversions.SharedInformerFactory,
 	opts ...Option,
 ) *PriorityQueue {
 	options := defaultPriorityQueueOptions
@@ -267,7 +268,7 @@ func NewPriorityQueue(
 	}
 
 	if options.dguestNominator == nil {
-		options.dguestNominator = NewDguestNominator(informerFactory.Core().V1().Dguests().Lister())
+		options.dguestNominator = NewDguestNominator(schedulerInformerFactory.Scheduler().V1alpha1().Dguests().Lister())
 	}
 
 	pq := &PriorityQueue{
@@ -284,7 +285,6 @@ func NewPriorityQueue(
 	}
 	pq.cond.L = &pq.lock
 	pq.dguestBackoffQ = heap.NewWithRecorder(dguestInfoKeyFunc, pq.dguestsCompareBackoffCompleted, metrics.NewBackoffDguestsRecorder())
-	pq.nsLister = informerFactory.Core().V1().Namespaces().Lister()
 
 	return pq
 }
@@ -663,7 +663,7 @@ func (p *PriorityQueue) moveDguestsToActiveOrBackoffQueue(dguestInfoList []*fram
 // NOTE: this function assumes lock has been acquired in caller.
 func (p *PriorityQueue) getUnschedulableDguestsWithMatchingAffinityTerm(dguest *v1alpha1.Dguest) []*framework.QueuedDguestInfo {
 	var nsLabels labels.Set
-	nsLabels = interdguestaffinity.GetNamespaceLabelsSnapshot(dguest.Namespace, p.nsLister)
+	//nsLabels = interdguestaffinity.GetNamespaceLabelsSnapshot(dguest.Namespace, p.nsLister)
 
 	var dguestsToMove []*framework.QueuedDguestInfo
 	for _, pInfo := range p.unschedulableDguests.dguestInfoMap {
@@ -860,37 +860,39 @@ func (npm *nominator) add(pi *framework.DguestInfo, nominatingInfo *framework.No
 	// one instance of the dguest.
 	npm.delete(pi.Dguest)
 
-	var foodName string
-	if nominatingInfo.Mode() == framework.ModeOverride {
-		foodName = nominatingInfo.NominatedFoodName
-	} else if nominatingInfo.Mode() == framework.ModeNoop {
-		if pi.Dguest.Status.NominatedFoodName == "" {
-			return
+	for _, info := range pi.Dguest.Status.FoodsInfo {
+		var foodName string
+		if nominatingInfo.Mode() == framework.ModeOverride {
+			foodName = nominatingInfo.NominatedFoodName
+		} else if nominatingInfo.Mode() == framework.ModeNoop {
+			if info.Name == "" {
+				return
+			}
+			foodName = info.Name
 		}
-		foodName = pi.Dguest.Status.NominatedFoodName
-	}
 
-	if npm.dguestLister != nil {
-		// If the dguest was removed or if it was already scheduled, don't nominate it.
-		updatedDguest, err := npm.dguestLister.Dguests(pi.Dguest.Namespace).Get(pi.Dguest.Name)
-		if err != nil {
-			klog.V(4).InfoS("Dguest doesn't exist in dguestLister, aborted adding it to the nominator", "dguest", klog.KObj(pi.Dguest))
-			return
+		if npm.dguestLister != nil {
+			//If the dguest was removed or if it was already scheduled, don't nominate it.
+			updatedDguest, err := npm.dguestLister.Dguests(pi.Dguest.Namespace).Get(pi.Dguest.Name)
+			if err != nil {
+				klog.V(4).InfoS("Dguest doesn't exist in dguestLister, aborted adding it to the nominator", "dguest", klog.KObj(pi.Dguest))
+				return
+			}
+			if len(updatedDguest.Status.FoodsInfo) > 0 {
+				klog.V(4).InfoS("Dguest is already scheduled to a food, aborted adding it to the nominator", "dguest", klog.KObj(pi.Dguest), "food", updatedDguest.Status.FoodsInfo)
+				return
+			}
 		}
-		if updatedDguest.Spec.FoodName != "" {
-			klog.V(4).InfoS("Dguest is already scheduled to a food, aborted adding it to the nominator", "dguest", klog.KObj(pi.Dguest), "food", updatedDguest.Spec.FoodName)
-			return
-		}
-	}
 
-	npm.nominatedDguestToFood[pi.Dguest.UID] = foodName
-	for _, npi := range npm.nominatedDguests[foodName] {
-		if npi.Dguest.UID == pi.Dguest.UID {
-			klog.V(4).InfoS("Dguest already exists in the nominator", "dguest", klog.KObj(npi.Dguest))
-			return
+		npm.nominatedDguestToFood[pi.Dguest.UID] = foodName
+		for _, npi := range npm.nominatedDguests[foodName] {
+			if npi.Dguest.UID == pi.Dguest.UID {
+				klog.V(4).InfoS("Dguest already exists in the nominator", "dguest", klog.KObj(npi.Dguest))
+				return
+			}
 		}
+		npm.nominatedDguests[foodName] = append(npm.nominatedDguests[foodName], pi)
 	}
-	npm.nominatedDguests[foodName] = append(npm.nominatedDguests[foodName], pi)
 }
 
 func (npm *nominator) delete(p *v1alpha1.Dguest) {

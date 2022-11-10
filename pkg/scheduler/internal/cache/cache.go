@@ -17,14 +17,15 @@ limitations under the License.
 package cache
 
 import (
+	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
 	"fmt"
 	"os"
+	"reflect"
 	"sync"
 	"time"
 
 	"dguest-scheduler/pkg/scheduler/framework"
 	"dguest-scheduler/pkg/scheduler/metrics"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
@@ -423,8 +424,9 @@ func (cache *cacheImpl) ForgetDguest(dguest *v1alpha1.Dguest) error {
 	defer cache.mu.Unlock()
 
 	currState, ok := cache.dguestStates[key]
-	if ok && currState.dguest.Spec.FoodName != dguest.Spec.FoodName {
-		return fmt.Errorf("dguest %v was assumed on %v but assigned to %v", key, dguest.Spec.FoodName, currState.dguest.Spec.FoodName)
+
+	if ok && !reflect.DeepEqual(currState.dguest.Status.FoodsInfo, dguest.Status.FoodsInfo) {
+		return fmt.Errorf("dguest %v was assumed on %v but assigned to %v", key, dguest.Status.FoodsInfo, currState.dguest.Status.FoodsInfo)
 	}
 
 	// Only assumed dguest can be forgotten.
@@ -440,13 +442,15 @@ func (cache *cacheImpl) addDguest(dguest *v1alpha1.Dguest, assumeDguest bool) er
 	if err != nil {
 		return err
 	}
-	n, ok := cache.foods[dguest.Spec.FoodName]
-	if !ok {
-		n = newFoodInfoListItem(framework.NewFoodInfo())
-		cache.foods[dguest.Spec.FoodName] = n
+	for _, info := range dguest.Status.FoodsInfo {
+		n, ok := cache.foods[info.Name]
+		if !ok {
+			n = newFoodInfoListItem(framework.NewFoodInfo())
+			cache.foods[info.Name] = n
+		}
+		n.info.AddDguest(dguest)
+		cache.moveFoodInfoToHead(info.Name)
 	}
-	n.info.AddDguest(dguest)
-	cache.moveFoodInfoToHead(dguest.Spec.FoodName)
 	ps := &dguestState{
 		dguest: dguest,
 	}
@@ -475,17 +479,19 @@ func (cache *cacheImpl) removeDguest(dguest *v1alpha1.Dguest) error {
 		return err
 	}
 
-	n, ok := cache.foods[dguest.Spec.FoodName]
-	if !ok {
-		klog.ErrorS(nil, "Food not found when trying to remove dguest", "food", klog.KRef("", dguest.Spec.FoodName), "dguest", klog.KObj(dguest))
-	} else {
-		if err := n.info.RemoveDguest(dguest); err != nil {
-			return err
-		}
-		if len(n.info.Dguests) == 0 && n.info.Food() == nil {
-			cache.removeFoodInfoFromList(dguest.Spec.FoodName)
+	for _, info := range dguest.Status.FoodsInfo {
+		n, ok := cache.foods[info.Name]
+		if !ok {
+			klog.ErrorS(nil, "Food not found when trying to remove dguest", "food", info.Name, "dguest", klog.KObj(dguest))
 		} else {
-			cache.moveFoodInfoToHead(dguest.Spec.FoodName)
+			if err := n.info.RemoveDguest(dguest); err != nil {
+				return err
+			}
+			if len(n.info.Dguests) == 0 && n.info.Food() == nil {
+				cache.removeFoodInfoFromList(info.Name)
+			} else {
+				cache.moveFoodInfoToHead(info.Name)
+			}
 		}
 	}
 
@@ -506,9 +512,9 @@ func (cache *cacheImpl) AddDguest(dguest *v1alpha1.Dguest) error {
 	currState, ok := cache.dguestStates[key]
 	switch {
 	case ok && cache.assumedDguests.Has(key):
-		if currState.dguest.Spec.FoodName != dguest.Spec.FoodName {
+		if !reflect.DeepEqual(currState.dguest.Status.FoodsInfo, dguest.Status.FoodsInfo) {
 			// The dguest was added to a different food than it was assumed to.
-			klog.InfoS("Dguest was added to a different food than it was assumed", "dguest", klog.KObj(dguest), "assumedFood", klog.KRef("", dguest.Spec.FoodName), "currentFood", klog.KRef("", currState.dguest.Spec.FoodName))
+			klog.InfoS("Dguest was added to a different food than it was assumed", "dguest", klog.KObj(dguest), "assumedFood", dguest.Status.FoodsInfo, "currentFood", currState.dguest.Status.FoodsInfo)
 			if err = cache.updateDguest(currState.dguest, dguest); err != nil {
 				klog.ErrorS(err, "Error occurred while updating dguest")
 			}
@@ -541,7 +547,7 @@ func (cache *cacheImpl) UpdateDguest(oldDguest, newDguest *v1alpha1.Dguest) erro
 	// An assumed dguest won't have Update/Remove event. It needs to have Add event
 	// before Update event, in which case the state would change from Assumed to Added.
 	if ok && !cache.assumedDguests.Has(key) {
-		if currState.dguest.Spec.FoodName != newDguest.Spec.FoodName {
+		if !reflect.DeepEqual(currState.dguest.Status.FoodsInfo, newDguest.Status.FoodsInfo) {
 			klog.ErrorS(nil, "Dguest updated on a different food than previously added to", "dguest", klog.KObj(oldDguest))
 			klog.ErrorS(nil, "scheduler cache is corrupted and can badly affect scheduling decisions")
 			os.Exit(1)
@@ -564,9 +570,9 @@ func (cache *cacheImpl) RemoveDguest(dguest *v1alpha1.Dguest) error {
 	if !ok {
 		return fmt.Errorf("dguest %v is not found in scheduler cache, so cannot be removed from it", key)
 	}
-	if currState.dguest.Spec.FoodName != dguest.Spec.FoodName {
-		klog.ErrorS(nil, "Dguest was added to a different food than it was assumed", "dguest", klog.KObj(dguest), "assumedFood", klog.KRef("", dguest.Spec.FoodName), "currentFood", klog.KRef("", currState.dguest.Spec.FoodName))
-		if dguest.Spec.FoodName != "" {
+	if !reflect.DeepEqual(currState.dguest.Status.FoodsInfo, dguest.Status.FoodsInfo) {
+		klog.ErrorS(nil, "Dguest was added to a different food than it was assumed", "dguest", klog.KObj(dguest), "assumedFood", dguest.Status.FoodsInfo, "currentFood", currState.dguest.Status.FoodsInfo)
+		if len(dguest.Status.FoodsInfo) > 0 {
 			// An empty FoodName is possible when the scheduler misses a Delete
 			// event and it gets the last known state from the informer cache.
 			klog.ErrorS(nil, "scheduler cache is corrupted and can badly affect scheduling decisions")
@@ -680,28 +686,28 @@ func (cache *cacheImpl) RemoveFood(food *v1alpha1.Food) error {
 // addFoodImageStates adds states of the images on given food to the given foodInfo and update the imageStates in
 // scheduler cache. This function assumes the lock to scheduler cache has been acquired.
 func (cache *cacheImpl) addFoodImageStates(food *v1alpha1.Food, foodInfo *framework.FoodInfo) {
-	newSum := make(map[string]*framework.ImageStateSummary)
-
-	for _, image := range food.Status.Images {
-		for _, name := range image.Names {
-			// update the entry in imageStates
-			state, ok := cache.imageStates[name]
-			if !ok {
-				state = &imageState{
-					size:  image.SizeBytes,
-					foods: sets.NewString(food.Name),
-				}
-				cache.imageStates[name] = state
-			} else {
-				state.foods.Insert(food.Name)
-			}
-			// create the imageStateSummary for this image
-			if _, ok := newSum[name]; !ok {
-				newSum[name] = cache.createImageStateSummary(state)
-			}
-		}
-	}
-	foodInfo.ImageStates = newSum
+	//newSum := make(map[string]*framework.ImageStateSummary)
+	//
+	//for _, image := range food.Status.Images {
+	//	for _, name := range image.Names {
+	//		// update the entry in imageStates
+	//		state, ok := cache.imageStates[name]
+	//		if !ok {
+	//			state = &imageState{
+	//				size:  image.SizeBytes,
+	//				foods: sets.NewString(food.Name),
+	//			}
+	//			cache.imageStates[name] = state
+	//		} else {
+	//			state.foods.Insert(food.Name)
+	//		}
+	//		// create the imageStateSummary for this image
+	//		if _, ok := newSum[name]; !ok {
+	//			newSum[name] = cache.createImageStateSummary(state)
+	//		}
+	//	}
+	//}
+	//foodInfo.ImageStates = newSum
 }
 
 // removeFoodImageStates removes the given food record from image entries having the food
@@ -712,20 +718,20 @@ func (cache *cacheImpl) removeFoodImageStates(food *v1alpha1.Food) {
 		return
 	}
 
-	for _, image := range food.Status.Images {
-		for _, name := range image.Names {
-			state, ok := cache.imageStates[name]
-			if ok {
-				state.foods.Delete(food.Name)
-				if len(state.foods) == 0 {
-					// Remove the unused image to make sure the length of
-					// imageStates represents the total number of different
-					// images on all foods
-					delete(cache.imageStates, name)
-				}
-			}
-		}
-	}
+	//for _, image := range food.Status.Images {
+	//	for _, name := range image.Names {
+	//		state, ok := cache.imageStates[name]
+	//		if ok {
+	//			state.foods.Delete(food.Name)
+	//			if len(state.foods) == 0 {
+	//				// Remove the unused image to make sure the length of
+	//				// imageStates represents the total number of different
+	//				// images on all foods
+	//				delete(cache.imageStates, name)
+	//			}
+	//		}
+	//	}
+	//}
 }
 
 func (cache *cacheImpl) run() {

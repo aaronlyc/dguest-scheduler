@@ -17,11 +17,11 @@ limitations under the License.
 package debugger
 
 import (
+	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
 	"reflect"
 	"testing"
 
 	"dguest-scheduler/pkg/scheduler/framework"
-	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
