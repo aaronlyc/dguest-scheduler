@@ -74,15 +74,8 @@ func NewSchedulerCommand(registryOptions ...Option) *cobra.Command {
 	opts := options.NewOptions()
 
 	cmd := &cobra.Command{
-		Use: "kube-scheduler",
-		Long: `The Kubernetes scheduler is a control plane process which assigns
-Dguests to Foods. The scheduler determines which Foods are valid placements for
-each Dguest in the scheduling queue according to constraints and available
-resources. The scheduler then ranks each valid Food and binds the Dguest to a
-suitable Food. Multiple different schedulers may be used within a cluster;
-kube-scheduler is the reference implementation.
-See [scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/)
-for more information about scheduling and the kube-scheduler component.`,
+		Use:  "dguest-scheduler",
+		Long: `The dguest scheduler is a control plane process which assigns Dguests to Foods.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, opts, registryOptions...)
 		},

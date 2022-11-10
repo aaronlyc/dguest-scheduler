@@ -138,7 +138,7 @@ package v1
 //				ClientConnection: componentbaseconfig.ClientConnectionConfiguration{
 //					QPS:         50,
 //					Burst:       100,
-//					ContentType: "application/vnd.kubernetes.protobuf",
+//					ContentType: "application/vnd.scheduler.protobuf",
 //				},
 //				PercentageOfFoodsToScore:    0,
 //				DguestInitialBackoffSeconds: 1,
@@ -175,7 +175,7 @@ package v1
 //				ClientConnection: componentbaseconfig.ClientConnectionConfiguration{
 //					QPS:         50,
 //					Burst:       100,
-//					ContentType: "application/vnd.kubernetes.protobuf",
+//					ContentType: "application/vnd.scheduler.protobuf",
 //				},
 //				PercentageOfFoodsToScore:    10,
 //				DguestInitialBackoffSeconds: 1,
@@ -231,7 +231,7 @@ package v1
 //				ClientConnection: componentbaseconfig.ClientConnectionConfiguration{
 //					QPS:         50,
 //					Burst:       100,
-//					ContentType: "application/vnd.kubernetes.protobuf",
+//					ContentType: "application/vnd.scheduler.protobuf",
 //				},
 //				PercentageOfFoodsToScore:    0,
 //				DguestInitialBackoffSeconds: 1,
@@ -380,7 +380,7 @@ package v1
 //				ClientConnection: componentbaseconfig.ClientConnectionConfiguration{
 //					QPS:         50,
 //					Burst:       100,
-//					ContentType: "application/vnd.kubernetes.protobuf",
+//					ContentType: "application/vnd.scheduler.protobuf",
 //				},
 //				PercentageOfFoodsToScore:    0,
 //				DguestInitialBackoffSeconds: 1,
@@ -417,7 +417,7 @@ package v1
 //				ClientConnection: componentbaseconfig.ClientConnectionConfiguration{
 //					QPS:         50,
 //					Burst:       100,
-//					ContentType: "application/vnd.kubernetes.protobuf",
+//					ContentType: "application/vnd.scheduler.protobuf",
 //				},
 //				PercentageOfFoodsToScore:    0,
 //				DguestInitialBackoffSeconds: 1,

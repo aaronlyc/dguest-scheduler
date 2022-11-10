@@ -6,6 +6,7 @@ import (
 	schedulerconfig "dguest-scheduler/pkg/scheduler/apis/config/v1"
 	"fmt"
 	"k8s.io/klog/v2"
+	netutils "k8s.io/utils/net"
 	"net"
 	"os"
 	"os/user"
@@ -32,7 +33,6 @@ import (
 	"k8s.io/component-base/logs"
 	logsapi "k8s.io/component-base/logs/api/v1"
 	"k8s.io/component-base/metrics"
-	netutils "k8s.io/utils/net"
 )
 
 // Options has all the params needed to run a Scheduler
@@ -236,13 +236,13 @@ func (o *Options) ApplyTo(c *schedulerappconfig.Config) error {
 func (o *Options) Validate() []error {
 	var errs []error
 
-	if err := validation.ValidateKubeSchedulerConfiguration(o.ComponentConfig); err != nil {
-		errs = append(errs, err.Errors()...)
-	}
-	errs = append(errs, o.SecureServing.Validate()...)
-	errs = append(errs, o.Authentication.Validate()...)
-	errs = append(errs, o.Authorization.Validate()...)
-	errs = append(errs, o.Metrics.Validate()...)
+	//if err := validation.ValidateKubeSchedulerConfiguration(o.ComponentConfig); err != nil {
+	//	errs = append(errs, err.Errors()...)
+	//}
+	//errs = append(errs, o.SecureServing.Validate()...)
+	//errs = append(errs, o.Authentication.Validate()...)
+	//errs = append(errs, o.Authorization.Validate()...)
+	//errs = append(errs, o.Metrics.Validate()...)
 
 	return errs
 }

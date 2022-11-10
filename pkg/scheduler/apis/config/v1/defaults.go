@@ -136,7 +136,7 @@ func SetDefaults_KubeSchedulerConfiguration(obj *SchedulerConfiguration) {
 	}
 
 	if len(obj.ClientConnection.ContentType) == 0 {
-		obj.ClientConnection.ContentType = "application/vnd.kubernetes.protobuf"
+		obj.ClientConnection.ContentType = "application/vnd.scheduler.protobuf"
 	}
 	// Scheduler has an opinion about QPS/Burst, setting specific defaults for itself, instead of generic settings.
 	if obj.ClientConnection.QPS == 0.0 {
