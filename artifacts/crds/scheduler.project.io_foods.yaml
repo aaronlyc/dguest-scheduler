@@ -5,9 +5,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
-  name: foods.scheduler.k8s.io
+  name: foods.scheduler.project.io
 spec:
-  group: scheduler.k8s.io
+  group: scheduler.project.io
   names:
     kind: Food
     listKind: FoodList

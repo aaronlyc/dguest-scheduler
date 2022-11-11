@@ -32,7 +32,7 @@ type SchedulerV1alpha1Interface interface {
 	FoodsGetter
 }
 
-// SchedulerV1alpha1Client is used to interact with features provided by the scheduler.k8s.io group.
+// SchedulerV1alpha1Client is used to interact with features provided by the scheduler.project.io group.
 type SchedulerV1alpha1Client struct {
 	restClient rest.Interface
 }

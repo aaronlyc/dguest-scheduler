@@ -36,9 +36,9 @@ type FakeDguests struct {
 	ns   string
 }
 
-var dguestsResource = schema.GroupVersionResource{Group: "scheduler.k8s.io", Version: "v1alpha1", Resource: "dguests"}
+var dguestsResource = schema.GroupVersionResource{Group: "scheduler.project.io", Version: "v1alpha1", Resource: "dguests"}
 
-var dguestsKind = schema.GroupVersionKind{Group: "scheduler.k8s.io", Version: "v1alpha1", Kind: "Dguest"}
+var dguestsKind = schema.GroupVersionKind{Group: "scheduler.project.io", Version: "v1alpha1", Kind: "Dguest"}
 
 // Get takes name of the dguest, and returns the corresponding dguest object, and an error if there is any.
 func (c *FakeDguests) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Dguest, err error) {

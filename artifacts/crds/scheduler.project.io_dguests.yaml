@@ -5,9 +5,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
-  name: dguests.scheduler.k8s.io
+  name: dguests.scheduler.project.io
 spec:
-  group: scheduler.k8s.io
+  group: scheduler.project.io
   names:
     kind: Dguest
     listKind: DguestList

@@ -36,9 +36,9 @@ type FakeFoods struct {
 	ns   string
 }
 
-var foodsResource = schema.GroupVersionResource{Group: "scheduler.k8s.io", Version: "v1alpha1", Resource: "foods"}
+var foodsResource = schema.GroupVersionResource{Group: "scheduler.project.io", Version: "v1alpha1", Resource: "foods"}
 
-var foodsKind = schema.GroupVersionKind{Group: "scheduler.k8s.io", Version: "v1alpha1", Kind: "Food"}
+var foodsKind = schema.GroupVersionKind{Group: "scheduler.project.io", Version: "v1alpha1", Kind: "Food"}
 
 // Get takes name of the food, and returns the corresponding food object, and an error if there is any.
 func (c *FakeFoods) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Food, err error) {
