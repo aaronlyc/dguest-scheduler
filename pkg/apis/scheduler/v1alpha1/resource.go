@@ -19,6 +19,7 @@ const (
 	ResourceStorage ResourceName = "storage"
 	// Bandwidth for the tenant.
 	ResourceBandwidth ResourceName = "bandwidth"
+	ResourceGate      ResourceName = "gate"
 )
 
 // ResourceList is a set of (resource name, quantity) pairs.

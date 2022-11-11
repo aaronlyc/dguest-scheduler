@@ -1,0 +1,28 @@
+apiVersion: scheduler.project.io/v1alpha1
+kind: Food
+metadata:
+  name: example1-food1
+  namespace: food
+spec:
+  unschedulable: false
+status:
+  allocatable:
+    cpu: "4"
+    bandwidth: "40"
+    memory: 4025084Ki
+    gate: "110"
+  capacity:
+    cpu: "5"
+    bandwidth: "60"
+    memory: 5025084Ki
+    gate: "110"
+  foodInfo:
+    version: v1
+    items:
+      - namespace: example1-ms1
+        name: ms1-p1
+        phase: Good
+      - namespace: example1-ms2
+        name: ms2-p1
+        phase: Good
+

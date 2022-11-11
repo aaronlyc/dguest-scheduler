@@ -37,6 +37,6 @@ func Default() (*v1.SchedulerConfiguration, error) {
 	// because the field will be cleared later by API machinery during
 	// conversion. See SchedulerConfiguration internal type definition for
 	// more details.
-	//cfg.TypeMeta.APIVersion = v1.SchemeGroupVersion.String()
+	cfg.TypeMeta.APIVersion = v1.SchemeGroupVersion.String()
 	return &cfg, nil
 }

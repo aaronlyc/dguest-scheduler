@@ -102,7 +102,7 @@ type FoodStatus struct {
 	// Allocatable represents the resources of a food that are available for scheduling.
 	Allocatable ResourceList    `json:"allocatable,omitempty"`
 	Conditions  []FoodCondition `json:"conditions,omitempty"`
-	FoodInfo    FoodInfo        `json:"foodInfo,omitempty"`
+	FoodInfo    *FoodInfo       `json:"foodInfo,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

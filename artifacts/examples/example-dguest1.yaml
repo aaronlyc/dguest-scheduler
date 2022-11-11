@@ -1,0 +1,12 @@
+apiVersion: scheduler.project.io/v1alpha1
+kind: Dguest
+metadata:
+  name: example-dguest1
+  namespace: dguest
+spec:
+  wantBill: example1
+  replicas: 1
+  schedulerName: example1
+  overhead:
+    cpu: "2"
+    bandwidth: "10"

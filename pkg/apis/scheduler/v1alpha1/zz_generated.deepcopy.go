@@ -341,7 +341,11 @@ func (in *FoodStatus) DeepCopyInto(out *FoodStatus) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	in.FoodInfo.DeepCopyInto(&out.FoodInfo)
+	if in.FoodInfo != nil {
+		in, out := &in.FoodInfo, &out.FoodInfo
+		*out = new(FoodInfo)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 
