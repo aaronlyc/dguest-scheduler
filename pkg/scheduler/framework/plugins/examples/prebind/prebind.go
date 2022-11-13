@@ -20,6 +20,7 @@ import (
 	"context"
 	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
 	"dguest-scheduler/pkg/scheduler/framework"
+
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -38,7 +39,7 @@ func (sr StatelessPreBindExample) Name() string {
 }
 
 // PreBind is the functions invoked by the framework at "prebind" extension point.
-func (sr StatelessPreBindExample) PreBind(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, foodName string) *framework.Status {
+func (sr StatelessPreBindExample) PreBind(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) *framework.Status {
 	if dguest == nil {
 		return framework.NewStatus(framework.Error, "dguest cannot be nil")
 	}

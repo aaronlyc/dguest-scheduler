@@ -1,8 +1,10 @@
 package scheduler
 
 import (
+	apidguest "dguest-scheduler/pkg/api/dguest"
 	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
 	"dguest-scheduler/pkg/generated/informers/externalversions"
+	"dguest-scheduler/pkg/scheduler/framework"
 	"dguest-scheduler/pkg/scheduler/internal/queue"
 	"dguest-scheduler/pkg/scheduler/profile"
 	"fmt"
@@ -32,36 +34,36 @@ func (sched *Scheduler) onStorageClassAdd(obj interface{}) {
 	}
 }
 
-//func (sched *Scheduler) addFoodToCache(obj interface{}) {
-//	food, ok := obj.(*v1alpha1.Food)
-//	if !ok {
-//		klog.ErrorS(nil, "Cannot convert to *v1alpha1.Food", "obj", obj)
-//		return
-//	}
-//
-//	foodInfo := sched.Cache.AddFood(food)
-//	klog.V(3).InfoS("Add event for food", "food", klog.KObj(food))
-//	sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(queue.FoodAdd, preCheckForFood(foodInfo))
-//}
+func (sched *Scheduler) addFoodToCache(obj interface{}) {
+	food, ok := obj.(*v1alpha1.Food)
+	if !ok {
+		klog.ErrorS(nil, "Cannot convert to *v1alpha1.Food", "obj", obj)
+		return
+	}
 
-//func (sched *Scheduler) updateFoodInCache(oldObj, newObj interface{}) {
-//	oldFood, ok := oldObj.(*v1alpha1.Food)
-//	if !ok {
-//		klog.ErrorS(nil, "Cannot convert oldObj to *v1alpha1.Food", "oldObj", oldObj)
-//		return
-//	}
-//	newFood, ok := newObj.(*v1alpha1.Food)
-//	if !ok {
-//		klog.ErrorS(nil, "Cannot convert newObj to *v1alpha1.Food", "newObj", newObj)
-//		return
-//	}
-//
-//	foodInfo := sched.Cache.UpdateFood(oldFood, newFood)
-//	// Only requeue unschedulable dguests if the food became more schedulable.
-//	if event := foodSchedulingPropertiesChange(newFood, oldFood); event != nil {
-//		sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(*event, preCheckForFood(foodInfo))
-//	}
-//}
+	foodInfo := sched.Cache.AddFood(food)
+	klog.V(3).InfoS("Add event for food", "food", klog.KObj(food))
+	sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(queue.FoodAdd, preCheckForFood(foodInfo))
+}
+
+func (sched *Scheduler) updateFoodInCache(oldObj, newObj interface{}) {
+	oldFood, ok := oldObj.(*v1alpha1.Food)
+	if !ok {
+		klog.ErrorS(nil, "Cannot convert oldObj to *v1alpha1.Food", "oldObj", oldObj)
+		return
+	}
+	newFood, ok := newObj.(*v1alpha1.Food)
+	if !ok {
+		klog.ErrorS(nil, "Cannot convert newObj to *v1alpha1.Food", "newObj", newObj)
+		return
+	}
+
+	foodInfo := sched.Cache.UpdateFood(oldFood, newFood)
+	// Only requeue unschedulable dguests if the food became more schedulable.
+	if event := foodSchedulingPropertiesChange(newFood, oldFood); event != nil {
+		sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(*event, preCheckForFood(foodInfo))
+	}
+}
 
 func (sched *Scheduler) deleteFoodFromCache(obj interface{}) {
 	var food *v1alpha1.Food
@@ -210,7 +212,14 @@ func (sched *Scheduler) deleteDguestFromCache(obj interface{}) {
 
 // assignedDguest selects dguests that are assigned (scheduled and running).
 func assignedDguest(dguest *v1alpha1.Dguest) bool {
-	return len(dguest.Status.FoodsInfo) != 0
+	for _, dish := range dguest.Spec.WantBill {
+		k := apidguest.CuisineVersionKey(dish.Cuisine, dish.Version)
+		fi, ok := dguest.Status.FoodsInfo[k]
+		if !ok || len(fi) < dish.Number {
+			return false
+		}
+	}
+	return true
 }
 
 // responsibleForDguest returns true if the dguest has asked to be scheduled by the given scheduler.
@@ -225,192 +234,87 @@ func addAllEventHandlers(
 	informerFactory externalversions.SharedInformerFactory,
 ) {
 	// scheduled dguest cache
-	//informerFactory.Core().V1().Dguests().Informer().AddEventHandler(
-	//	cache.FilteringResourceEventHandler{
-	//		FilterFunc: func(obj interface{}) bool {
-	//			switch t := obj.(type) {
-	//			case *v1alpha1.Dguest:
-	//				return assignedDguest(t)
-	//			case cache.DeletedFinalStateUnknown:
-	//				if _, ok := t.Obj.(*v1alpha1.Dguest); ok {
-	//					// The carried object may be stale, so we don't use it to check if
-	//					// it's assigned or not. Attempting to cleanup anyways.
-	//					return true
-	//				}
-	//				utilruntime.HandleError(fmt.Errorf("unable to convert object %T to *v1alpha1.Dguest in %T", obj, sched))
-	//				return false
-	//			default:
-	//				utilruntime.HandleError(fmt.Errorf("unable to handle object in %T: %T", sched, obj))
-	//				return false
-	//			}
-	//		},
-	//		Handler: cache.ResourceEventHandlerFuncs{
-	//			AddFunc:    sched.addDguestToCache,
-	//			UpdateFunc: sched.updateDguestInCache,
-	//			DeleteFunc: sched.deleteDguestFromCache,
-	//		},
-	//	},
-	//)
-	//// unscheduled dguest queue
-	//informerFactory.Core().V1().Dguests().Informer().AddEventHandler(
-	//	cache.FilteringResourceEventHandler{
-	//		FilterFunc: func(obj interface{}) bool {
-	//			switch t := obj.(type) {
-	//			case *v1alpha1.Dguest:
-	//				return !assignedDguest(t) && responsibleForDguest(t, sched.Profiles)
-	//			case cache.DeletedFinalStateUnknown:
-	//				if dguest, ok := t.Obj.(*v1alpha1.Dguest); ok {
-	//					// The carried object may be stale, so we don't use it to check if
-	//					// it's assigned or not.
-	//					return responsibleForDguest(dguest, sched.Profiles)
-	//				}
-	//				utilruntime.HandleError(fmt.Errorf("unable to convert object %T to *v1alpha1.Dguest in %T", obj, sched))
-	//				return false
-	//			default:
-	//				utilruntime.HandleError(fmt.Errorf("unable to handle object in %T: %T", sched, obj))
-	//				return false
-	//			}
-	//		},
-	//		Handler: cache.ResourceEventHandlerFuncs{
-	//			AddFunc:    sched.addDguestToSchedulingQueue,
-	//			UpdateFunc: sched.updateDguestInSchedulingQueue,
-	//			DeleteFunc: sched.deleteDguestFromSchedulingQueue,
-	//		},
-	//	},
-	//)
-	//
-	//informerFactory.Core().V1().Foods().Informer().AddEventHandler(
-	//	cache.ResourceEventHandlerFuncs{
-	//		AddFunc:    sched.addFoodToCache,
-	//		UpdateFunc: sched.updateFoodInCache,
-	//		DeleteFunc: sched.deleteFoodFromCache,
-	//	},
-	//)
-	//
-	//buildEvtResHandler := func(at framework.ActionType, gvk framework.GVK, shortGVK string) cache.ResourceEventHandlerFuncs {
-	//	funcs := cache.ResourceEventHandlerFuncs{}
-	//	if at&framework.Add != 0 {
-	//		evt := framework.ClusterEvent{Resource: gvk, ActionType: framework.Add, Label: fmt.Sprintf("%vAdd", shortGVK)}
-	//		funcs.AddFunc = func(_ interface{}) {
-	//			sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(evt, nil)
-	//		}
-	//	}
-	//	if at&framework.Update != 0 {
-	//		evt := framework.ClusterEvent{Resource: gvk, ActionType: framework.Update, Label: fmt.Sprintf("%vUpdate", shortGVK)}
-	//		funcs.UpdateFunc = func(_, _ interface{}) {
-	//			sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(evt, nil)
-	//		}
-	//	}
-	//	if at&framework.Delete != 0 {
-	//		evt := framework.ClusterEvent{Resource: gvk, ActionType: framework.Delete, Label: fmt.Sprintf("%vDelete", shortGVK)}
-	//		funcs.DeleteFunc = func(_ interface{}) {
-	//			sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(evt, nil)
-	//		}
-	//	}
-	//	return funcs
-	//}
-	//
-	//for gvk, at := range gvkMap {
-	//	switch gvk {
-	//	case framework.Food, framework.Dguest:
-	//		// Do nothing.
-	//	case framework.CSIFood:
-	//		informerFactory.Storage().V1().CSIFoods().Informer().AddEventHandler(
-	//			buildEvtResHandler(at, framework.CSIFood, "CSIFood"),
-	//		)
-	//	case framework.CSIDriver:
-	//		informerFactory.Storage().V1().CSIDrivers().Informer().AddEventHandler(
-	//			buildEvtResHandler(at, framework.CSIDriver, "CSIDriver"),
-	//		)
-	//	case framework.CSIStorageCapacity:
-	//		informerFactory.Storage().V1().CSIStorageCapacities().Informer().AddEventHandler(
-	//			buildEvtResHandler(at, framework.CSIStorageCapacity, "CSIStorageCapacity"),
-	//		)
-	//	case framework.PersistentVolume:
-	//		// MaxPDVolumeCountPredicate: since it relies on the counts of PV.
-	//		//
-	//		// PvAdd: Dguests created when there are no PVs available will be stuck in
-	//		// unschedulable queue. But unbound PVs created for static provisioning and
-	//		// delay binding storage class are skipped in PV controller dynamic
-	//		// provisioning and binding process, will not trigger events to schedule dguest
-	//		// again. So we need to move dguests to active queue on PV add for this
-	//		// scenario.
-	//		//
-	//		// PvUpdate: Scheduler.bindVolumesWorker may fail to update assumed dguest volume
-	//		// bindings due to conflicts if PVs are updated by PV controller or other
-	//		// parties, then scheduler will add dguest back to unschedulable queue. We
-	//		// need to move dguests to active queue on PV update for this scenario.
-	//		informerFactory.Core().V1().PersistentVolumes().Informer().AddEventHandler(
-	//			buildEvtResHandler(at, framework.PersistentVolume, "Pv"),
-	//		)
-	//	case framework.PersistentVolumeClaim:
-	//		// MaxPDVolumeCountPredicate: add/update PVC will affect counts of PV when it is bound.
-	//		informerFactory.Core().V1().PersistentVolumeClaims().Informer().AddEventHandler(
-	//			buildEvtResHandler(at, framework.PersistentVolumeClaim, "Pvc"),
-	//		)
-	//	case framework.StorageClass:
-	//		if at&framework.Add != 0 {
-	//			informerFactory.Storage().V1().StorageClasses().Informer().AddEventHandler(
-	//				cache.ResourceEventHandlerFuncs{
-	//					AddFunc: sched.onStorageClassAdd,
-	//				},
-	//			)
-	//		}
-	//		if at&framework.Update != 0 {
-	//			informerFactory.Storage().V1().StorageClasses().Informer().AddEventHandler(
-	//				cache.ResourceEventHandlerFuncs{
-	//					UpdateFunc: func(_, _ interface{}) {
-	//						sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(queue.StorageClassUpdate, nil)
-	//					},
-	//				},
-	//			)
-	//		}
-	//	default:
-	//		// Tests may not instantiate dynInformerFactory.
-	//		if dynInformerFactory == nil {
-	//			continue
-	//		}
-	//		// GVK is expected to be at least 3-folded, separated by dots.
-	//		// <kind in plural>.<version>.<group>
-	//		// Valid examples:
-	//		// - foos.v1.example.com
-	//		// - bars.v1beta1.a.b.c
-	//		// Invalid examples:
-	//		// - foos.v1 (2 sections)
-	//		// - foo.v1.example.com (the first section should be plural)
-	//		if strings.Count(string(gvk), ".") < 2 {
-	//			klog.ErrorS(nil, "incorrect event registration", "gvk", gvk)
-	//			continue
-	//		}
-	//		// Fall back to try dynamic informers.
-	//		gvr, _ := schema.ParseResourceArg(string(gvk))
-	//		dynInformer := dynInformerFactory.ForResource(*gvr).Informer()
-	//		dynInformer.AddEventHandler(
-	//			buildEvtResHandler(at, gvk, strings.Title(gvr.Resource)),
-	//		)
-	//	}
-	//}
+	informerFactory.Scheduler().V1alpha1().Dguests().Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: func(obj interface{}) bool {
+			switch t := obj.(type) {
+			case *v1alpha1.Dguest:
+				return assignedDguest(t)
+			case cache.DeletedFinalStateUnknown:
+				if _, ok := t.Obj.(*v1alpha1.Dguest); ok {
+					// The carried object may be stale, so we don't use it to check if
+					// it's assigned or not. Attempting to cleanup anyways.
+					return true
+				}
+				utilruntime.HandleError(fmt.Errorf("unable to convert object %T to *v1alpha1.Dguest in %T", obj, sched))
+				return false
+			default:
+				utilruntime.HandleError(fmt.Errorf("unable to handle object in %T: %T", sched, obj))
+				return false
+			}
+		},
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    sched.addDguestToCache,
+			UpdateFunc: sched.updateDguestInCache,
+			DeleteFunc: sched.deleteDguestFromCache,
+		},
+	})
+
+	// unscheduled dguest queue
+	informerFactory.Scheduler().V1alpha1().Dguests().Informer().AddEventHandler(
+		cache.FilteringResourceEventHandler{
+			FilterFunc: func(obj interface{}) bool {
+				switch t := obj.(type) {
+				case *v1alpha1.Dguest:
+					return !assignedDguest(t) && responsibleForDguest(t, sched.Profiles)
+				case cache.DeletedFinalStateUnknown:
+					if dguest, ok := t.Obj.(*v1alpha1.Dguest); ok {
+						// The carried object may be stale, so we don't use it to check if
+						// it's assigned or not.
+						return responsibleForDguest(dguest, sched.Profiles)
+					}
+					utilruntime.HandleError(fmt.Errorf("unable to convert object %T to *v1alpha1.Dguest in %T", obj, sched))
+					return false
+				default:
+					utilruntime.HandleError(fmt.Errorf("unable to handle object in %T: %T", sched, obj))
+					return false
+				}
+			},
+			Handler: cache.ResourceEventHandlerFuncs{
+				AddFunc:    sched.addDguestToSchedulingQueue,
+				UpdateFunc: sched.updateDguestInSchedulingQueue,
+				DeleteFunc: sched.deleteDguestFromSchedulingQueue,
+			},
+		},
+	)
+
+	informerFactory.Scheduler().V1alpha1().Foods().Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    sched.addFoodToCache,
+			UpdateFunc: sched.updateFoodInCache,
+			DeleteFunc: sched.deleteFoodFromCache,
+		},
+	)
 }
 
-//func foodSchedulingPropertiesChange(newFood *v1alpha1.Food, oldFood *v1alpha1.Food) *framework.ClusterEvent {
-//	if foodSpecUnschedulableChanged(newFood, oldFood) {
-//		return &queue.FoodSpecUnschedulableChange
-//	}
-//	if foodAllocatableChanged(newFood, oldFood) {
-//		return &queue.FoodAllocatableChange
-//	}
-//	if foodLabelsChanged(newFood, oldFood) {
-//		return &queue.FoodLabelChange
-//	}
-//	if foodTaintsChanged(newFood, oldFood) {
-//		return &queue.FoodTaintChange
-//	}
-//	if foodConditionsChanged(newFood, oldFood) {
-//		return &queue.FoodConditionChange
-//	}
-//
-//	return nil
-//}
+func foodSchedulingPropertiesChange(newFood *v1alpha1.Food, oldFood *v1alpha1.Food) *framework.ClusterEvent {
+	if foodSpecUnschedulableChanged(newFood, oldFood) {
+		return &queue.FoodSpecUnschedulableChange
+	}
+	if foodAllocatableChanged(newFood, oldFood) {
+		return &queue.FoodAllocatableChange
+	}
+	if foodLabelsChanged(newFood, oldFood) {
+		return &queue.FoodLabelChange
+	}
+	if foodTaintsChanged(newFood, oldFood) {
+		return &queue.FoodTaintChange
+	}
+	//if foodConditionsChanged(newFood, oldFood) {
+	//	return &queue.FoodConditionChange
+	//}
+
+	return nil
+}
 
 func foodAllocatableChanged(newFood *v1alpha1.Food, oldFood *v1alpha1.Food) bool {
 	return !reflect.DeepEqual(oldFood.Status.Allocatable, newFood.Status.Allocatable)
@@ -439,63 +343,63 @@ func foodSpecUnschedulableChanged(newFood *v1alpha1.Food, oldFood *v1alpha1.Food
 	return newFood.Spec.Unschedulable != oldFood.Spec.Unschedulable && !newFood.Spec.Unschedulable
 }
 
-//func preCheckForFood(foodInfo *framework.FoodInfo) queue.PreEnqueueCheck {
-//	// Note: the following checks doesn't take preemption into considerations, in very rare
-//	// cases (e.g., food resizing), "dguest" may still fail a check but preemption helps. We deliberately
-//	// chose to ignore those cases as unschedulable dguests will be re-queued eventually.
-//	return func(dguest *v1alpha1.Dguest) bool {
-//		admissionResults := AdmissionCheck(dguest, foodInfo, false)
-//		if len(admissionResults) != 0 {
-//			return false
-//		}
-//		_, isUntolerated := corev1helpers.FindMatchingUntoleratedTaint(foodInfo.Food().Spec.Taints, dguest.Spec.Tolerations, func(t *v1.Taint) bool {
-//			return t.Effect == v1.TaintEffectNoSchedule
-//		})
-//		return !isUntolerated
-//	}
-//}
+func preCheckForFood(foodInfo *framework.FoodInfo) queue.PreEnqueueCheck {
+	// Note: the following checks doesn't take preemption into considerations, in very rare
+	// cases (e.g., food resizing), "dguest" may still fail a check but preemption helps. We deliberately
+	// chose to ignore those cases as unschedulable dguests will be re-queued eventually.
+	return func(dguest *v1alpha1.Dguest) bool {
+		admissionResults := AdmissionCheck(dguest, foodInfo, false)
+		if len(admissionResults) != 0 {
+			return false
+		}
+		//_, isUntolerated := corev1helpers.FindMatchingUntoleratedTaint(foodInfo.Food().Spec.Taints, dguest.Spec.Tolerations, func(t *v1.Taint) bool {
+		//	return t.Effect == v1.TaintEffectNoSchedule
+		//})
+		return true
+	}
+}
 
 // AdmissionCheck calls the filtering logic of foodresources/foodport/foodAffinity/foodname
 // and returns the failure reasons. It's used in kubelet(pkg/kubelet/lifecycle/predicate.go) and scheduler.
 // It returns the first failure if `includeAllFailures` is set to false; otherwise
 // returns all failures.
-//func AdmissionCheck(dguest *v1alpha1.Dguest, foodInfo *framework.FoodInfo, includeAllFailures bool) []AdmissionResult {
-//	var admissionResults []AdmissionResult
-//	insufficientResources := foodresources.Fits(dguest, foodInfo)
-//	if len(insufficientResources) != 0 {
-//		for i := range insufficientResources {
-//			admissionResults = append(admissionResults, AdmissionResult{InsufficientResource: &insufficientResources[i]})
-//		}
-//		if !includeAllFailures {
-//			return admissionResults
-//		}
-//	}
-//
-//	if matches, _ := corev1foodaffinity.GetRequiredFoodAffinity(dguest).Match(foodInfo.Food()); !matches {
-//		admissionResults = append(admissionResults, AdmissionResult{Name: foodaffinity.Name, Reason: foodaffinity.ErrReasonDguest})
-//		if !includeAllFailures {
-//			return admissionResults
-//		}
-//	}
-//	if !foodname.Fits(dguest, foodInfo) {
-//		admissionResults = append(admissionResults, AdmissionResult{Name: foodname.Name, Reason: foodname.ErrReason})
-//		if !includeAllFailures {
-//			return admissionResults
-//		}
-//	}
-//	//if !foodports.Fits(dguest, foodInfo) {
-//	//	admissionResults = append(admissionResults, AdmissionResult{Name: foodports.Name, Reason: foodports.ErrReason})
-//	//	if !includeAllFailures {
-//	//		return admissionResults
-//	//	}
-//	//}
-//	return admissionResults
-//}
+func AdmissionCheck(dguest *v1alpha1.Dguest, foodInfo *framework.FoodInfo, includeAllFailures bool) []AdmissionResult {
+	var admissionResults []AdmissionResult
+	//insufficientResources := foodresources.Fits(dguest, foodInfo)
+	//if len(insufficientResources) != 0 {
+	//	for i := range insufficientResources {
+	//		admissionResults = append(admissionResults, AdmissionResult{InsufficientResource: &insufficientResources[i]})
+	//	}
+	//	if !includeAllFailures {
+	//		return admissionResults
+	//	}
+	//}
+
+	//if matches, _ := corev1foodaffinity.GetRequiredFoodAffinity(dguest).Match(foodInfo.Food()); !matches {
+	//	admissionResults = append(admissionResults, AdmissionResult{Name: foodaffinity.Name, Reason: foodaffinity.ErrReasonDguest})
+	//	if !includeAllFailures {
+	//		return admissionResults
+	//	}
+	//}
+	//if !foodname.Fits(dguest, foodInfo) {
+	//	admissionResults = append(admissionResults, AdmissionResult{Name: foodname.Name, Reason: foodname.ErrReason})
+	//	if !includeAllFailures {
+	//		return admissionResults
+	//	}
+	//}
+	//if !foodports.Fits(dguest, foodInfo) {
+	//	admissionResults = append(admissionResults, AdmissionResult{Name: foodports.Name, Reason: foodports.ErrReason})
+	//	if !includeAllFailures {
+	//		return admissionResults
+	//	}
+	//}
+	return admissionResults
+}
 
 // AdmissionResult describes the reason why Scheduler can't admit the dguest.
 // If the reason is a resource fit one, then AdmissionResult.InsufficientResource includes the details.
-//type AdmissionResult struct {
-//	Name                 string
-//	Reason               string
-//	InsufficientResource *foodresources.InsufficientResource
-//}
+type AdmissionResult struct {
+	Name   string
+	Reason string
+	//InsufficientResource *foodresources.InsufficientResource
+}

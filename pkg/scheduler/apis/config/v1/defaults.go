@@ -1,19 +1,3 @@
-/*
-Copyright 2022 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package v1
 
 import (
@@ -108,7 +92,7 @@ func SetDefaults_KubeSchedulerConfiguration(obj *SchedulerConfiguration) {
 	// Only apply a default scheduler name when there is a single profile.
 	// Validation will ensure that every profile has a non-empty unique name.
 	if len(obj.Profiles) == 1 && obj.Profiles[0].SchedulerName == "" {
-		obj.Profiles[0].SchedulerName = v1.DefaultSchedulerName
+		obj.Profiles[0].SchedulerName = DefaultSchedulerName
 	}
 
 	// Add the default set of plugins and apply the configuration.
@@ -136,7 +120,7 @@ func SetDefaults_KubeSchedulerConfiguration(obj *SchedulerConfiguration) {
 	}
 
 	if len(obj.ClientConnection.ContentType) == 0 {
-		obj.ClientConnection.ContentType = "application/vnd.scheduler.protobuf"
+		obj.ClientConnection.ContentType = ""
 	}
 	// Scheduler has an opinion about QPS/Burst, setting specific defaults for itself, instead of generic settings.
 	if obj.ClientConnection.QPS == 0.0 {

@@ -166,7 +166,7 @@ package scheduler
 //	return "NumericMap"
 //}
 //
-//func (pl *numericMapPlugin) Score(_ context.Context, _ *framework.CycleState, _ *v1alpha1.Dguest, foodName string) (int64, *framework.Status) {
+//func (pl *numericMapPlugin) Score(_ context.Context, _ *framework.CycleState, _ *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) (int64, *framework.Status) {
 //	score, err := strconv.Atoi(foodName)
 //	if err != nil {
 //		return 0, framework.NewStatus(framework.Error, fmt.Sprintf("Error converting foodname to int: %+v", foodName))
@@ -189,7 +189,7 @@ package scheduler
 //	return "ReverseNumericMap"
 //}
 //
-//func (pl *reverseNumericMapPlugin) Score(_ context.Context, _ *framework.CycleState, _ *v1alpha1.Dguest, foodName string) (int64, *framework.Status) {
+//func (pl *reverseNumericMapPlugin) Score(_ context.Context, _ *framework.CycleState, _ *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) (int64, *framework.Status) {
 //	score, err := strconv.Atoi(foodName)
 //	if err != nil {
 //		return 0, framework.NewStatus(framework.Error, fmt.Sprintf("Error converting foodname to int: %+v", foodName))
@@ -306,7 +306,7 @@ package scheduler
 //	return t.name
 //}
 //
-//func (t *TestPlugin) Score(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, foodName string) (int64, *framework.Status) {
+//func (t *TestPlugin) Score(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) (int64, *framework.Status) {
 //	return 1, nil
 //}
 //
@@ -468,7 +468,7 @@ package scheduler
 //		{
 //			name:       "error reserve dguest",
 //			sendDguest:    dguestWithID("foo", ""),
-//			mockResult: mockScheduleResult{ScheduleResult{SuggestedHost: testFood.Name, EvaluatedFoods: 1, FeasibleFoods: 1}, nil},
+//			mockResult: mockScheduleResult{ScheduleResult{SuggestedFood: testFood.Name, EvaluatedFoods: 1, FeasibleFoods: 1}, nil},
 //			registerPluginFuncs: []st.RegisterPluginFunc{
 //				st.RegisterReservePlugin("FakeReserve", st.NewFakeReservePlugin(framework.NewStatus(framework.Error, "reserve error"))),
 //			},
@@ -481,7 +481,7 @@ package scheduler
 //		{
 //			name:       "error permit dguest",
 //			sendDguest:    dguestWithID("foo", ""),
-//			mockResult: mockScheduleResult{ScheduleResult{SuggestedHost: testFood.Name, EvaluatedFoods: 1, FeasibleFoods: 1}, nil},
+//			mockResult: mockScheduleResult{ScheduleResult{SuggestedFood: testFood.Name, EvaluatedFoods: 1, FeasibleFoods: 1}, nil},
 //			registerPluginFuncs: []st.RegisterPluginFunc{
 //				st.RegisterPermitPlugin("FakePermit", st.NewFakePermitPlugin(framework.NewStatus(framework.Error, "permit error"), time.Minute)),
 //			},
@@ -494,7 +494,7 @@ package scheduler
 //		{
 //			name:       "error prebind dguest",
 //			sendDguest:    dguestWithID("foo", ""),
-//			mockResult: mockScheduleResult{ScheduleResult{SuggestedHost: testFood.Name, EvaluatedFoods: 1, FeasibleFoods: 1}, nil},
+//			mockResult: mockScheduleResult{ScheduleResult{SuggestedFood: testFood.Name, EvaluatedFoods: 1, FeasibleFoods: 1}, nil},
 //			registerPluginFuncs: []st.RegisterPluginFunc{
 //				st.RegisterPreBindPlugin("FakePreBind", st.NewFakePreBindPlugin(framework.AsStatus(preBindErr))),
 //			},
@@ -507,7 +507,7 @@ package scheduler
 //		{
 //			name:             "bind assumed dguest scheduled",
 //			sendDguest:          dguestWithID("foo", ""),
-//			mockResult:       mockScheduleResult{ScheduleResult{SuggestedHost: testFood.Name, EvaluatedFoods: 1, FeasibleFoods: 1}, nil},
+//			mockResult:       mockScheduleResult{ScheduleResult{SuggestedFood: testFood.Name, EvaluatedFoods: 1, FeasibleFoods: 1}, nil},
 //			expectBind:       &v1.Binding{ObjectMeta: metav1.ObjectMeta{Name: "foo", UID: types.UID("foo")}, Target: v1.ObjectReference{Kind: "Food", Name: testFood.Name}},
 //			expectAssumedDguest: dguestWithID("foo", testFood.Name),
 //			eventReason:      "Scheduled",
@@ -515,7 +515,7 @@ package scheduler
 //		{
 //			name:           "error dguest failed scheduling",
 //			sendDguest:        dguestWithID("foo", ""),
-//			mockResult:     mockScheduleResult{ScheduleResult{SuggestedHost: testFood.Name, EvaluatedFoods: 1, FeasibleFoods: 1}, errS},
+//			mockResult:     mockScheduleResult{ScheduleResult{SuggestedFood: testFood.Name, EvaluatedFoods: 1, FeasibleFoods: 1}, errS},
 //			expectError:    errS,
 //			expectErrorDguest: dguestWithID("foo", ""),
 //			eventReason:    "FailedScheduling",
@@ -523,7 +523,7 @@ package scheduler
 //		{
 //			name:             "error bind forget dguest failed scheduling",
 //			sendDguest:          dguestWithID("foo", ""),
-//			mockResult:       mockScheduleResult{ScheduleResult{SuggestedHost: testFood.Name, EvaluatedFoods: 1, FeasibleFoods: 1}, nil},
+//			mockResult:       mockScheduleResult{ScheduleResult{SuggestedFood: testFood.Name, EvaluatedFoods: 1, FeasibleFoods: 1}, nil},
 //			expectBind:       &v1.Binding{ObjectMeta: metav1.ObjectMeta{Name: "foo", UID: types.UID("foo")}, Target: v1.ObjectReference{Kind: "Food", Name: testFood.Name}},
 //			expectAssumedDguest: dguestWithID("foo", testFood.Name),
 //			injectBindError:  errB,
@@ -2046,8 +2046,8 @@ package scheduler
 //					}
 //				}
 //			}
-//			if test.wantFoods != nil && !test.wantFoods.Has(result.SuggestedHost) {
-//				t.Errorf("Expected: %s, got: %s", test.wantFoods, result.SuggestedHost)
+//			if test.wantFoods != nil && !test.wantFoods.Has(result.SuggestedFood) {
+//				t.Errorf("Expected: %s, got: %s", test.wantFoods, result.SuggestedFood)
 //			}
 //			wantEvaluatedFoods := len(test.foods)
 //			if test.wantEvaluatedFoods != nil {

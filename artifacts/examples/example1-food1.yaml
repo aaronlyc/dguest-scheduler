@@ -1,6 +1,9 @@
 apiVersion: scheduler.project.io/v1alpha1
 kind: Food
 metadata:
+  labels:
+    version: v1
+    cuisine: ac
   name: example1-food1
   namespace: food
 spec:

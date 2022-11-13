@@ -6,10 +6,12 @@ import (
 	"dguest-scheduler/pkg/generated/clientset/versioned"
 	"encoding/json"
 	"fmt"
-	v1helper "k8s.io/kubernetes/pkg/apis/core/v1/helper"
 	"time"
 
+	v1helper "k8s.io/kubernetes/pkg/apis/core/v1/helper"
+
 	extenderv1 "dguest-scheduler/pkg/scheduler/apis/extender/v1"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -125,7 +127,7 @@ func ClearNominatedFoodName(ctx context.Context, cs versioned.Interface, dguests
 		}
 
 		dguestStatusCopy := p.Status.DeepCopy()
-		dguestStatusCopy.FoodsInfo = make([]v1alpha1.DguestFoodInfo, len(p.Status.FoodsInfo))
+		dguestStatusCopy.FoodsInfo = make(map[string]v1alpha1.FoodsInfoSlice)
 		if err := PatchDguestStatus(ctx, cs, p, dguestStatusCopy); err != nil {
 			errs = append(errs, err)
 		}

@@ -16,16 +16,18 @@ limitations under the License.
 
 package framework
 
+import "dguest-scheduler/pkg/apis/scheduler/v1alpha1"
+
 // FoodInfoLister interface represents anything that can list/get FoodInfo objects from food name.
 type FoodInfoLister interface {
 	// List returns the list of FoodInfos.
-	List() ([]*FoodInfo, error)
+	List(cuisineVersion string) []*FoodInfo
 	// HaveDguestsWithAffinityList returns the list of FoodInfos of foods with dguests with affinity terms.
 	HaveDguestsWithAffinityList() ([]*FoodInfo, error)
 	// HaveDguestsWithRequiredAntiAffinityList returns the list of FoodInfos of foods with dguests with required anti-affinity terms.
 	HaveDguestsWithRequiredAntiAffinityList() ([]*FoodInfo, error)
 	// Get returns the FoodInfo of the given food name.
-	Get(foodName string) (*FoodInfo, error)
+	Get(selectedFood *v1alpha1.FoodInfoBase) (*FoodInfo, error)
 }
 
 // StorageInfoLister interface represents anything that handles storage-related operations and resources.
@@ -38,5 +40,5 @@ type StorageInfoLister interface {
 // SharedLister groups scheduler-specific listers.
 type SharedLister interface {
 	FoodInfos() FoodInfoLister
-	StorageInfos() StorageInfoLister
+	// StorageInfos() StorageInfoLister
 }

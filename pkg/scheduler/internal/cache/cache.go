@@ -1,19 +1,3 @@
-/*
-Copyright 2015 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package cache
 
 import (
@@ -24,8 +8,10 @@ import (
 	"sync"
 	"time"
 
+	apidguest "dguest-scheduler/pkg/api/dguest"
 	"dguest-scheduler/pkg/scheduler/framework"
 	"dguest-scheduler/pkg/scheduler/metrics"
+
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
@@ -72,7 +58,7 @@ type cacheImpl struct {
 	headFood *foodInfoListItem
 	foodTree *foodTree
 	// A map from image name to its imageState.
-	imageStates map[string]*imageState
+	// imageStates map[string]*imageState
 }
 
 type dguestState struct {
@@ -84,20 +70,20 @@ type dguestState struct {
 	bindingFinished bool
 }
 
-type imageState struct {
-	// Size of the image
-	size int64
-	// A set of food names for foods having this image present
-	foods sets.String
-}
+// type imageState struct {
+// 	// Size of the image
+// 	size int64
+// 	// A set of food names for foods having this image present
+// 	foods sets.String
+// }
 
 // createImageStateSummary returns a summarizing snapshot of the given image's state.
-func (cache *cacheImpl) createImageStateSummary(state *imageState) *framework.ImageStateSummary {
-	return &framework.ImageStateSummary{
-		Size:     state.size,
-		NumFoods: len(state.foods),
-	}
-}
+// func (cache *cacheImpl) createImageStateSummary(state *imageState) *framework.ImageStateSummary {
+// 	return &framework.ImageStateSummary{
+// 		Size:     state.size,
+// 		NumFoods: len(state.foods),
+// 	}
+// }
 
 func newCache(ttl, period time.Duration, stop <-chan struct{}) *cacheImpl {
 	return &cacheImpl{
@@ -109,7 +95,7 @@ func newCache(ttl, period time.Duration, stop <-chan struct{}) *cacheImpl {
 		foodTree:       newFoodTree(nil),
 		assumedDguests: make(sets.String),
 		dguestStates:   make(map[string]*dguestState),
-		imageStates:    make(map[string]*imageState),
+		// imageStates:    make(map[string]*imageState),
 	}
 }
 
@@ -196,69 +182,33 @@ func (cache *cacheImpl) Dump() *Dump {
 // foodInfo.Food() is guaranteed to be not nil for all the foods in the snapshot.
 // This function tracks generation number of FoodInfo and updates only the
 // entries of an existing snapshot that have changed after the snapshot was taken.
-func (cache *cacheImpl) UpdateSnapshot(foodSnapshot *Snapshot) error {
+func (cache *cacheImpl) UpdateSnapshot(foodSnapshot *Snapshot, cuisineVersion string) error {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 
 	// Get the last generation of the snapshot.
 	snapshotGeneration := foodSnapshot.generation
 
-	// FoodInfoList and HaveDguestsWithAffinityFoodInfoList must be re-created if a food was added
-	// or removed from the cache.
-	updateAllLists := false
-	// HaveDguestsWithAffinityFoodInfoList must be re-created if a food changed its
-	// status from having dguests with affinity to NOT having dguests with affinity or the other
-	// way around.
-	updateFoodsHaveDguestsWithAffinity := false
-	// HaveDguestsWithRequiredAntiAffinityFoodInfoList must be re-created if a food changed its
-	// status from having dguests with required anti-affinity to NOT having dguests with required
-	// anti-affinity or the other way around.
-	updateFoodsHaveDguestsWithRequiredAntiAffinity := false
-	// usedPVCSet must be re-created whenever the head food generation is greater than
-	// last snapshot generation.
-	updateUsedPVCSet := false
-
 	// Start from the head of the FoodInfo doubly linked list and update snapshot
 	// of FoodInfos updated after the last snapshot.
-	for food := cache.headFood; food != nil; food = food.next {
-		if food.info.Generation <= snapshotGeneration {
+	newSnapshotFoodInfo := make(map[string][]*framework.FoodInfo)
+	for cachefood := cache.headFood; cachefood != nil; cachefood = cachefood.next {
+		if cachefood.info.Generation <= snapshotGeneration {
 			// all the foods are updated before the existing snapshot. We are done.
 			break
 		}
-		if np := food.info.Food(); np != nil {
-			existing, ok := foodSnapshot.foodInfoMap[np.Name]
+		if np := cachefood.info.Food(); np != nil {
+
+			key := apidguest.FoodCuisineVersionKey(np)
+			_, ok := newSnapshotFoodInfo[key]
 			if !ok {
-				updateAllLists = true
-				existing = &framework.FoodInfo{}
-				foodSnapshot.foodInfoMap[np.Name] = existing
+				newSnapshotFoodInfo[key] = []*framework.FoodInfo{}
 			}
-			clone := food.info.Clone()
-			// We track foods that have dguests with affinity, here we check if this food changed its
-			// status from having dguests with affinity to NOT having dguests with affinity or the other
-			// way around.
-			if (len(existing.DguestsWithAffinity) > 0) != (len(clone.DguestsWithAffinity) > 0) {
-				updateFoodsHaveDguestsWithAffinity = true
-			}
-			if (len(existing.DguestsWithRequiredAntiAffinity) > 0) != (len(clone.DguestsWithRequiredAntiAffinity) > 0) {
-				updateFoodsHaveDguestsWithRequiredAntiAffinity = true
-			}
-			if !updateUsedPVCSet {
-				if len(existing.PVCRefCounts) != len(clone.PVCRefCounts) {
-					updateUsedPVCSet = true
-				} else {
-					for pvcKey := range clone.PVCRefCounts {
-						if _, found := existing.PVCRefCounts[pvcKey]; !found {
-							updateUsedPVCSet = true
-							break
-						}
-					}
-				}
-			}
-			// We need to preserve the original pointer of the FoodInfo struct since it
-			// is used in the FoodInfoList, which we may not update.
-			*existing = *clone
+			clone := cachefood.info.Clone()
+			newSnapshotFoodInfo[key] = append(newSnapshotFoodInfo[key], clone)
 		}
 	}
+	foodSnapshot.foodInfoMap = newSnapshotFoodInfo
 	// Update the snapshot generation with the latest FoodInfo generation.
 	if cache.headFood != nil {
 		foodSnapshot.generation = cache.headFood.info.Generation
@@ -267,76 +217,28 @@ func (cache *cacheImpl) UpdateSnapshot(foodSnapshot *Snapshot) error {
 	// Comparing to dguests in foodTree.
 	// Deleted foods get removed from the tree, but they might remain in the foods map
 	// if they still have non-deleted Dguests.
-	if len(foodSnapshot.foodInfoMap) > cache.foodTree.numFoods {
-		cache.removeDeletedFoodsFromSnapshot(foodSnapshot)
-		updateAllLists = true
+	if foodSnapshot.NumFoods(cuisineVersion) > cache.foodTree.foodCount(cuisineVersion) {
+		cache.removeDeletedFoodsFromSnapshot(foodSnapshot, foodSnapshot.NumFoods(cuisineVersion)-cache.foodTree.foodCount(cuisineVersion))
 	}
 
-	if updateAllLists || updateFoodsHaveDguestsWithAffinity || updateFoodsHaveDguestsWithRequiredAntiAffinity || updateUsedPVCSet {
-		cache.updateFoodInfoSnapshotList(foodSnapshot, updateAllLists)
-	}
-
-	if len(foodSnapshot.foodInfoList) != cache.foodTree.numFoods {
-		errMsg := fmt.Sprintf("snapshot state is not consistent, length of FoodInfoList=%v not equal to length of foods in tree=%v "+
-			", length of FoodInfoMap=%v, length of foods in cache=%v"+
-			", trying to recover",
-			len(foodSnapshot.foodInfoList), cache.foodTree.numFoods,
-			len(foodSnapshot.foodInfoMap), len(cache.foods))
-		klog.ErrorS(nil, errMsg)
-		// We will try to recover by re-creating the lists for the next scheduling cycle, but still return an
-		// error to surface the problem, the error will likely cause a failure to the current scheduling cycle.
-		cache.updateFoodInfoSnapshotList(foodSnapshot, true)
-		return fmt.Errorf(errMsg)
-	}
+	// if len(foodSnapshot.foodInfoList) != cache.foodTree.numFoods {
+	// 	errMsg := fmt.Sprintf("snapshot state is not consistent, length of FoodInfoList=%v not equal to length of foods in tree=%v "+
+	// 		", length of FoodInfoMap=%v, length of foods in cache=%v"+
+	// 		", trying to recover",
+	// 		len(foodSnapshot.foodInfoList), cache.foodTree.numFoods,
+	// 		len(foodSnapshot.foodInfoMap), len(cache.foods))
+	// 	klog.ErrorS(nil, errMsg)
+	// 	// We will try to recover by re-creating the lists for the next scheduling cycle, but still return an
+	// 	// error to surface the problem, the error will likely cause a failure to the current scheduling cycle.
+	// 	// cache.updateFoodInfoSnapshotList(foodSnapshot, true)
+	// 	return fmt.Errorf(errMsg)
+	// }
 
 	return nil
 }
 
-func (cache *cacheImpl) updateFoodInfoSnapshotList(snapshot *Snapshot, updateAll bool) {
-	snapshot.haveDguestsWithAffinityFoodInfoList = make([]*framework.FoodInfo, 0, cache.foodTree.numFoods)
-	snapshot.haveDguestsWithRequiredAntiAffinityFoodInfoList = make([]*framework.FoodInfo, 0, cache.foodTree.numFoods)
-	snapshot.usedPVCSet = sets.NewString()
-	if updateAll {
-		// Take a snapshot of the foods order in the tree
-		snapshot.foodInfoList = make([]*framework.FoodInfo, 0, cache.foodTree.numFoods)
-		foodsList, err := cache.foodTree.list()
-		if err != nil {
-			klog.ErrorS(err, "Error occurred while retrieving the list of names of the foods from food tree")
-		}
-		for _, foodName := range foodsList {
-			if foodInfo := snapshot.foodInfoMap[foodName]; foodInfo != nil {
-				snapshot.foodInfoList = append(snapshot.foodInfoList, foodInfo)
-				if len(foodInfo.DguestsWithAffinity) > 0 {
-					snapshot.haveDguestsWithAffinityFoodInfoList = append(snapshot.haveDguestsWithAffinityFoodInfoList, foodInfo)
-				}
-				if len(foodInfo.DguestsWithRequiredAntiAffinity) > 0 {
-					snapshot.haveDguestsWithRequiredAntiAffinityFoodInfoList = append(snapshot.haveDguestsWithRequiredAntiAffinityFoodInfoList, foodInfo)
-				}
-				for key := range foodInfo.PVCRefCounts {
-					snapshot.usedPVCSet.Insert(key)
-				}
-			} else {
-				klog.ErrorS(nil, "Food exists in foodTree but not in FoodInfoMap, this should not happen", "food", klog.KRef("", foodName))
-			}
-		}
-	} else {
-		for _, foodInfo := range snapshot.foodInfoList {
-			if len(foodInfo.DguestsWithAffinity) > 0 {
-				snapshot.haveDguestsWithAffinityFoodInfoList = append(snapshot.haveDguestsWithAffinityFoodInfoList, foodInfo)
-			}
-			if len(foodInfo.DguestsWithRequiredAntiAffinity) > 0 {
-				snapshot.haveDguestsWithRequiredAntiAffinityFoodInfoList = append(snapshot.haveDguestsWithRequiredAntiAffinityFoodInfoList, foodInfo)
-			}
-			for key := range foodInfo.PVCRefCounts {
-				snapshot.usedPVCSet.Insert(key)
-			}
-		}
-	}
-}
-
 // If certain foods were deleted after the last snapshot was taken, we should remove them from the snapshot.
-func (cache *cacheImpl) removeDeletedFoodsFromSnapshot(snapshot *Snapshot) {
-	toDelete := len(snapshot.foodInfoMap) - cache.foodTree.numFoods
+func (cache *cacheImpl) removeDeletedFoodsFromSnapshot(snapshot *Snapshot, toDelete int) {
 	for name := range snapshot.foodInfoMap {
 		if toDelete <= 0 {
 			break
@@ -442,14 +344,16 @@ func (cache *cacheImpl) addDguest(dguest *v1alpha1.Dguest, assumeDguest bool) er
 	if err != nil {
 		return err
 	}
-	for _, info := range dguest.Status.FoodsInfo {
-		n, ok := cache.foods[info.Name]
-		if !ok {
-			n = newFoodInfoListItem(framework.NewFoodInfo())
-			cache.foods[info.Name] = n
+	for _, infos := range dguest.Status.FoodsInfo {
+		for _, info := range infos {
+			n, ok := cache.foods[info.Name]
+			if !ok {
+				n = newFoodInfoListItem(framework.NewFoodInfo())
+				cache.foods[info.Name] = n
+			}
+			n.info.AddDguest(dguest)
+			cache.moveFoodInfoToHead(info.Name)
 		}
-		n.info.AddDguest(dguest)
-		cache.moveFoodInfoToHead(info.Name)
 	}
 	ps := &dguestState{
 		dguest: dguest,
@@ -479,18 +383,20 @@ func (cache *cacheImpl) removeDguest(dguest *v1alpha1.Dguest) error {
 		return err
 	}
 
-	for _, info := range dguest.Status.FoodsInfo {
-		n, ok := cache.foods[info.Name]
-		if !ok {
-			klog.ErrorS(nil, "Food not found when trying to remove dguest", "food", info.Name, "dguest", klog.KObj(dguest))
-		} else {
-			if err := n.info.RemoveDguest(dguest); err != nil {
-				return err
-			}
-			if len(n.info.Dguests) == 0 && n.info.Food() == nil {
-				cache.removeFoodInfoFromList(info.Name)
+	for _, infos := range dguest.Status.FoodsInfo {
+		for _, info := range infos {
+			n, ok := cache.foods[info.Name]
+			if !ok {
+				klog.ErrorS(nil, "Food not found when trying to remove dguest", "food", info.Name, "dguest", klog.KObj(dguest))
 			} else {
-				cache.moveFoodInfoToHead(info.Name)
+				if err := n.info.RemoveDguest(dguest); err != nil {
+					return err
+				}
+				if len(n.info.Dguests) == 0 && n.info.Food() == nil {
+					cache.removeFoodInfoFromList(info.Name)
+				} else {
+					cache.moveFoodInfoToHead(info.Name)
+				}
 			}
 		}
 	}

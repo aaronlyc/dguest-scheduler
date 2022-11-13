@@ -19,6 +19,7 @@ package cache
 import (
 	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
 	"dguest-scheduler/pkg/scheduler/framework"
+
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -109,7 +110,7 @@ type Cache interface {
 	// on this food.
 	// The snapshot only includes Foods that are not deleted at the time this function is called.
 	// foodinfo.Food() is guaranteed to be not nil for all the foods in the snapshot.
-	UpdateSnapshot(foodSnapshot *Snapshot) error
+	UpdateSnapshot(foodSnapshot *Snapshot, cuisineVersion string) error
 
 	// Dump produces a dump of the current cache.
 	Dump() *Dump

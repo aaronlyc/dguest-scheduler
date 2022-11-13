@@ -20,6 +20,7 @@ import (
 	internalqueue "dguest-scheduler/pkg/scheduler/internal/queue"
 	"dguest-scheduler/pkg/scheduler/metrics"
 	"dguest-scheduler/pkg/scheduler/profile"
+
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	restclient "k8s.io/client-go/rest"
@@ -56,7 +57,7 @@ type Scheduler struct {
 	// ScheduleDguest tries to schedule the given dguest to one of the foods in the food list.
 	// Return a struct of ScheduleResult with the name of suggested host on success,
 	// otherwise will return a FitError with reasons.
-	ScheduleDguest func(ctx context.Context, fwk framework.Framework, state *framework.CycleState, dguest *v1alpha1.Dguest) (ScheduleResult, error)
+	ScheduleDguest func(ctx context.Context, fwk framework.Framework, state *framework.CycleState, dguest *v1alpha1.Dguest, cuisineVersion string) (ScheduleResult, error)
 
 	// Close this to shut down the scheduler.
 	StopEverything <-chan struct{}
@@ -98,7 +99,7 @@ type Option func(*schedulerOptions)
 // ScheduleResult represents the result of scheduling a dguest.
 type ScheduleResult struct {
 	// Name of the selected food.
-	SuggestedHost string
+	SuggestedFood *v1alpha1.FoodInfoBase
 	// The number of foods the scheduler evaluated the dguest against in the filtering
 	// phase and beyond.
 	EvaluatedFoods int

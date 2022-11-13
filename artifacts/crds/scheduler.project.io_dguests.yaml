@@ -52,10 +52,6 @@ spec:
                 description: Rescheduling policy, including the rescheduling policy
                   when the replica on the tenant is abnormal
                 type: string
-              replicas:
-                description: Number of replicas
-                format: int32
-                type: integer
               schedulerName:
                 description: Name of the scheduler
                 type: string
@@ -102,48 +98,90 @@ spec:
                 type: array
               wantBill:
                 description: The Bill the dguest want to scheduler.
-                type: string
+                items:
+                  properties:
+                    cuisine:
+                      description: The cuisine of food, indicating the different food
+                        groups
+                      type: string
+                    number:
+                      description: Number of foods.
+                      type: integer
+                    version:
+                      description: Versions represent different versions of food and
+                        are used in multi-version upgrades
+                      type: string
+                  type: object
+                type: array
             type: object
           status:
             description: DguestStatus is the status for a Food resource
             properties:
-              foodsInfo:
+              conditions:
                 items:
+                  description: DguestCondition contains details for the current condition
+                    of this dguest.
                   properties:
-                    condition:
-                      description: DguestFoodCondition contains details for the current
-                        condition of this dguest.
-                      properties:
-                        lastProbeTime:
-                          description: Last time we probed the condition.
-                          format: date-time
-                          type: string
-                        lastTransitionTime:
-                          description: Last time the condition transitioned from one
-                            status to another.
-                          format: date-time
-                          type: string
-                        message:
-                          description: Human-readable message indicating details about
-                            last transition.
-                          type: string
-                        reason:
-                          description: Unique, one-word, CamelCase reason for the
-                            condition's last transition.
-                          type: string
-                        status:
-                          description: Status is the status of the condition. Can
-                            be True, False, Unknown.
-                          type: string
-                        type:
-                          description: Type is the type of the condition.
-                          type: string
-                      type: object
+                    lastProbeTime:
+                      description: Last time we probed the condition.
+                      format: date-time
+                      type: string
+                    lastTransitionTime:
+                      description: Last time the condition transitioned from one status
+                        to another.
+                      format: date-time
+                      type: string
+                    message:
+                      description: Human-readable message indicating details about
+                        last transition.
+                      type: string
+                    reason:
+                      description: Unique, one-word, CamelCase reason for the condition's
+                        last transition.
+                      type: string
+                    status:
+                      description: Status is the status of the condition. Can be True,
+                        False, Unknown.
+                      type: string
+                    type:
+                      description: Type is the type of the condition.
+                      type: string
+                  type: object
+                type: array
+              foodsInfo:
+                additionalProperties:
+                  items:
+                    properties:
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                      schedulerdTime:
+                        format: date-time
+                        type: string
+                    type: object
+                  type: array
+                description: FoodsInfo is the foods that using now. key is the cuisineVersion
+                  key, value is food slice scheduer to the dguest.
+                type: object
+              originalFoods:
+                description: OriginalFoods are foods that have been dispatched before
+                  and are not being used now
+                items:
+                  description: OriginalFoodInfo The original foods are foods that
+                    have been dispatched before and are not being used now. Use this
+                    as a reference when scheduling more food, as there are related
+                    configurations above.
+                  properties:
+                    cuisineVersion:
+                      type: string
                     name:
                       type: string
                     namespace:
                       type: string
-                    schedulerdTime:
+                    removeReason:
+                      type: string
+                    removeTime:
                       format: date-time
                       type: string
                   type: object
@@ -158,6 +196,8 @@ spec:
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}
 status:
   acceptedNames:
     kind: ""

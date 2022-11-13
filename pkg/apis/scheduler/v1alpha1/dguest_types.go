@@ -49,8 +49,8 @@ const (
 	ConditionUnknown ConditionStatus = "Unknown"
 )
 
-// DguestFoodCondition contains details for the current condition of this dguest.
-type DguestFoodCondition struct {
+// DguestCondition contains details for the current condition of this dguest.
+type DguestCondition struct {
 	// Type is the type of the condition.
 	Type DguestFoodConditionType `json:"type,omitempty"`
 	// Status is the status of the condition.
@@ -71,10 +71,34 @@ type DguestFoodCondition struct {
 }
 
 type DguestFoodInfo struct {
-	Namespace      string              `json:"namespace,omitempty"`
-	Name           string              `json:"name,omitempty"`
-	SchedulerdTime metav1.Time         `json:"schedulerdTime,omitempty"`
-	Condition      DguestFoodCondition `json:"condition,omitempty"`
+	Namespace      string      `json:"namespace,omitempty"`
+	Name           string      `json:"name,omitempty"`
+	SchedulerdTime metav1.Time `json:"schedulerdTime,omitempty"`
+}
+
+type FoodsInfoSlice []DguestFoodInfo
+
+type Dish struct {
+	// Versions represent different versions of food and are used in multi-version upgrades
+	Version string `json:"version,omitempty"`
+	// The cuisine of food, indicating the different food groups
+	Cuisine string `json:"cuisine,omitempty"`
+	// Number of foods.
+	Number int `json:"number,omitempty"`
+}
+
+// OriginalFoodInfo The original foods are foods that have been dispatched before and are not being used now.
+// Use this as a reference when scheduling more food, as there are related configurations above.
+type OriginalFoodInfo struct {
+	FoodInfoBase `json:",inline"`
+	RemoveTime   metav1.Time `json:"removeTime,omitempty"`
+	RemoveReason string      `json:"removeReason,omitempty"`
+}
+
+type FoodInfoBase struct {
+	Namespace      string `json:"namespace,omitempty"`
+	Name           string `json:"name,omitempty"`
+	CuisineVersion string `json:"cuisineVersion,omitempty"`
 }
 
 // DguestPhase is a label for the condition of a dguest at the current time.
@@ -104,6 +128,7 @@ const (
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:subresource:status
 
 // Dguest is a specification for a Food resource
 type Dguest struct {
@@ -121,9 +146,7 @@ type DguestSpec struct {
 	// The timeout period before becoming active
 	ActiveDeadlineSeconds *int64 `json:"activeDeadlineSeconds,omitempty"`
 	// The Bill the dguest want to scheduler.
-	WantBill *string `json:"wantBill,omitempty"`
-	// Number of replicas
-	Replicas *int32 `json:"replicas,omitempty"`
+	WantBill []Dish `json:"wantBill,omitempty"`
 	// Name of the scheduler
 	SchedulerName string `json:"schedulerName,omitempty"`
 	// Tolerance: indicates that it can be scheduled to foods with tolerance
@@ -134,8 +157,13 @@ type DguestSpec struct {
 
 // DguestStatus is the status for a Food resource
 type DguestStatus struct {
-	FoodsInfo []DguestFoodInfo `json:"foodsInfo,omitempty"`
-	Phase     DguestPhase      `json:"phase,omitempty"`
+	// FoodsInfo is the foods that using now.
+	// key is the cuisineVersion key, value is food slice scheduer to the dguest.
+	FoodsInfo map[string]FoodsInfoSlice `json:"foodsInfo,omitempty"`
+	// OriginalFoods are foods that have been dispatched before and are not being used now
+	OriginalFoods []OriginalFoodInfo `json:"originalFoods,omitempty"`
+	Phase         DguestPhase        `json:"phase,omitempty"`
+	Conditions    []DguestCondition  `json:"conditions,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

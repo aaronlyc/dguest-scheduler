@@ -1893,7 +1893,7 @@ package cache
 //}
 //
 //// getFoodInfo returns cached data for the food name.
-//func (cache *cacheImpl) getFoodInfo(foodName string) (*v1alpha1.Food, error) {
+//func (cache *cacheImpl) getFoodInfo(selectedFood *v1alpha1.FoodInfoBase) (*v1alpha1.Food, error) {
 //	cache.mu.RLock()
 //	defer cache.mu.RUnlock()
 //

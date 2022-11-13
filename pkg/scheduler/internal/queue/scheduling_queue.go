@@ -1,19 +1,3 @@
-/*
-Copyright 2017 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 // This file contains structures that implement scheduling queue types.
 // Scheduling queues hold dguests waiting to be scheduled. This file implements a
 // priority queue which has two sub queues and a additional data structure,
@@ -39,6 +23,7 @@ import (
 	"dguest-scheduler/pkg/scheduler/internal/heap"
 	"dguest-scheduler/pkg/scheduler/metrics"
 	"dguest-scheduler/pkg/scheduler/util"
+
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -724,13 +709,13 @@ func (npm *nominator) AddNominatedDguest(pi *framework.DguestInfo, nominatingInf
 
 // NominatedDguestsForFood returns a copy of dguests that are nominated to run on the given food,
 // but they are waiting for other dguests to be removed from the food.
-func (npm *nominator) NominatedDguestsForFood(foodName string) []*framework.DguestInfo {
+func (npm *nominator) NominatedDguestsForFood(selectedFood *v1alpha1.FoodInfoBase) []*framework.DguestInfo {
 	npm.RLock()
 	defer npm.RUnlock()
 	// Make a copy of the nominated Dguests so the caller can mutate safely.
-	dguests := make([]*framework.DguestInfo, len(npm.nominatedDguests[foodName]))
+	dguests := make([]*framework.DguestInfo, len(npm.nominatedDguests[selectedFood.Name]))
 	for i := 0; i < len(dguests); i++ {
-		dguests[i] = npm.nominatedDguests[foodName][i].DeepCopy()
+		dguests[i] = npm.nominatedDguests[selectedFood.Name][i].DeepCopy()
 	}
 	return dguests
 }
@@ -860,38 +845,40 @@ func (npm *nominator) add(pi *framework.DguestInfo, nominatingInfo *framework.No
 	// one instance of the dguest.
 	npm.delete(pi.Dguest)
 
-	for _, info := range pi.Dguest.Status.FoodsInfo {
-		var foodName string
-		if nominatingInfo.Mode() == framework.ModeOverride {
-			foodName = nominatingInfo.NominatedFoodName
-		} else if nominatingInfo.Mode() == framework.ModeNoop {
-			if info.Name == "" {
-				return
+	for _, infos := range pi.Dguest.Status.FoodsInfo {
+		for _, info := range infos {
+			var foodName string
+			if nominatingInfo.Mode() == framework.ModeOverride {
+				foodName = nominatingInfo.NominatedFoodName
+			} else if nominatingInfo.Mode() == framework.ModeNoop {
+				if info.Name == "" {
+					return
+				}
+				foodName = info.Name
 			}
-			foodName = info.Name
-		}
 
-		if npm.dguestLister != nil {
-			//If the dguest was removed or if it was already scheduled, don't nominate it.
-			updatedDguest, err := npm.dguestLister.Dguests(pi.Dguest.Namespace).Get(pi.Dguest.Name)
-			if err != nil {
-				klog.V(4).InfoS("Dguest doesn't exist in dguestLister, aborted adding it to the nominator", "dguest", klog.KObj(pi.Dguest))
-				return
+			if npm.dguestLister != nil {
+				//If the dguest was removed or if it was already scheduled, don't nominate it.
+				updatedDguest, err := npm.dguestLister.Dguests(pi.Dguest.Namespace).Get(pi.Dguest.Name)
+				if err != nil {
+					klog.V(4).InfoS("Dguest doesn't exist in dguestLister, aborted adding it to the nominator", "dguest", klog.KObj(pi.Dguest))
+					return
+				}
+				if len(updatedDguest.Status.FoodsInfo) > 0 {
+					klog.V(4).InfoS("Dguest is already scheduled to a food, aborted adding it to the nominator", "dguest", klog.KObj(pi.Dguest), "food", updatedDguest.Status.FoodsInfo)
+					return
+				}
 			}
-			if len(updatedDguest.Status.FoodsInfo) > 0 {
-				klog.V(4).InfoS("Dguest is already scheduled to a food, aborted adding it to the nominator", "dguest", klog.KObj(pi.Dguest), "food", updatedDguest.Status.FoodsInfo)
-				return
-			}
-		}
 
-		npm.nominatedDguestToFood[pi.Dguest.UID] = foodName
-		for _, npi := range npm.nominatedDguests[foodName] {
-			if npi.Dguest.UID == pi.Dguest.UID {
-				klog.V(4).InfoS("Dguest already exists in the nominator", "dguest", klog.KObj(npi.Dguest))
-				return
+			npm.nominatedDguestToFood[pi.Dguest.UID] = foodName
+			for _, npi := range npm.nominatedDguests[foodName] {
+				if npi.Dguest.UID == pi.Dguest.UID {
+					klog.V(4).InfoS("Dguest already exists in the nominator", "dguest", klog.KObj(npi.Dguest))
+					return
+				}
 			}
+			npm.nominatedDguests[foodName] = append(npm.nominatedDguests[foodName], pi)
 		}
-		npm.nominatedDguests[foodName] = append(npm.nominatedDguests[foodName], pi)
 	}
 }
 

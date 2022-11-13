@@ -22,6 +22,8 @@ const (
 	// DefaultKubeSchedulerPort is the default port for the scheduler status server.
 	// May be overridden by a flag at startup.
 	DefaultKubeSchedulerPort = 10259
+
+	DefaultSchedulerName = "ac-scheduler"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

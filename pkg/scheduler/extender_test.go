@@ -91,7 +91,7 @@ package scheduler
 //			},
 //			foods: []string{"food1", "food2"},
 //			expectedResult: ScheduleResult{
-//				SuggestedHost:  "food1",
+//				SuggestedFood:  "food1",
 //				EvaluatedFoods: 2,
 //				FeasibleFoods:  1,
 //			},
@@ -133,7 +133,7 @@ package scheduler
 //			},
 //			foods: []string{"food1"},
 //			expectedResult: ScheduleResult{
-//				SuggestedHost:  "food1",
+//				SuggestedFood:  "food1",
 //				EvaluatedFoods: 1,
 //				FeasibleFoods:  1,
 //			},
@@ -161,7 +161,7 @@ package scheduler
 //			},
 //			foods: []string{"food1", "food2"},
 //			expectedResult: ScheduleResult{
-//				SuggestedHost:  "food2",
+//				SuggestedFood:  "food2",
 //				EvaluatedFoods: 2,
 //				FeasibleFoods:  2,
 //			},
@@ -184,7 +184,7 @@ package scheduler
 //			},
 //			foods: []string{"food1", "food2"},
 //			expectedResult: ScheduleResult{
-//				SuggestedHost:  "food2",
+//				SuggestedFood:  "food2",
 //				EvaluatedFoods: 2,
 //				FeasibleFoods:  2,
 //			}, // food2 has higher score
@@ -215,7 +215,7 @@ package scheduler
 //			foods:      []string{"food1", "food2"},
 //			expectsErr: false,
 //			expectedResult: ScheduleResult{
-//				SuggestedHost:  "food2",
+//				SuggestedFood:  "food2",
 //				EvaluatedFoods: 2,
 //				FeasibleFoods:  2,
 //			}, // food2 has higher score
@@ -246,7 +246,7 @@ package scheduler
 //			foods:      []string{"food1", "food2"},
 //			expectsErr: false,
 //			expectedResult: ScheduleResult{
-//				SuggestedHost:  "food1",
+//				SuggestedFood:  "food1",
 //				EvaluatedFoods: 2,
 //				FeasibleFoods:  1,
 //			},

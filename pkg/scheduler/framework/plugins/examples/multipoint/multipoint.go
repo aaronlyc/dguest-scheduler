@@ -21,6 +21,7 @@ import (
 	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
 
 	"dguest-scheduler/pkg/scheduler/framework"
+
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -51,7 +52,7 @@ func (s *stateData) Clone() framework.StateData {
 }
 
 // Reserve is the function invoked by the framework at "reserve" extension point.
-func (mc CommunicatingPlugin) Reserve(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, foodName string) *framework.Status {
+func (mc CommunicatingPlugin) Reserve(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) *framework.Status {
 	if dguest == nil {
 		return framework.NewStatus(framework.Error, "dguest cannot be nil")
 	}
@@ -63,7 +64,7 @@ func (mc CommunicatingPlugin) Reserve(ctx context.Context, state *framework.Cycl
 
 // Unreserve is the function invoked by the framework when any error happens
 // during "reserve" extension point or later.
-func (mc CommunicatingPlugin) Unreserve(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, foodName string) {
+func (mc CommunicatingPlugin) Unreserve(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) {
 	if dguest.Name == "my-test-dguest" {
 		// The dguest is at the end of its lifecycle -- let's clean up the allocated
 		// resources. In this case, our clean up is simply deleting the key written
@@ -73,7 +74,7 @@ func (mc CommunicatingPlugin) Unreserve(ctx context.Context, state *framework.Cy
 }
 
 // PreBind is the function invoked by the framework at "prebind" extension point.
-func (mc CommunicatingPlugin) PreBind(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, foodName string) *framework.Status {
+func (mc CommunicatingPlugin) PreBind(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) *framework.Status {
 	if dguest == nil {
 		return framework.NewStatus(framework.Error, "dguest cannot be nil")
 	}

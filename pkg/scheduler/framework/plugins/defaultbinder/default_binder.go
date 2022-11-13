@@ -19,10 +19,12 @@ package defaultbinder
 import (
 	"context"
 	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"dguest-scheduler/pkg/scheduler/framework"
 	"dguest-scheduler/pkg/scheduler/framework/plugins/names"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
 )
@@ -48,8 +50,8 @@ func (b DefaultBinder) Name() string {
 }
 
 // Bind binds dguests to foods using the k8s client.
-func (b DefaultBinder) Bind(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, foodName string) *framework.Status {
-	klog.V(3).InfoS("Attempting to bind dguest to food", "dguest", klog.KObj(p), "food", klog.KRef("", foodName))
+func (b DefaultBinder) Bind(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) *framework.Status {
+	klog.V(3).InfoS("Attempting to bind dguest to food", "dguest", klog.KObj(p), "food", klog.KRef("", selectedFood.Name))
 	//binding := &v1.Binding{
 	//	ObjectMeta: metav1.ObjectMeta{Namespace: p.Namespace, Name: p.Name, UID: p.UID},
 	//	Target:     v1.ObjectReference{Kind: "Food", Name: foodName},
@@ -60,9 +62,13 @@ func (b DefaultBinder) Bind(ctx context.Context, state *framework.CycleState, p 
 	//if err != nil {
 	//	return framework.AsStatus(err)
 	//}
-	p.Status.FoodsInfo = append(p.Status.FoodsInfo, v1alpha1.DguestFoodInfo{
-		Name:           foodName,
-		SchedulerdTime: metav1.Now(),
-	})
+	//p.Status.FoodsInfo = append(p.Status.FoodsInfo, v1alpha1.DguestFoodInfo{
+	//	Name:           foodName,
+	//	SchedulerdTime: metav1.Now(),
+	//})
+	_, err := b.handle.SchedulerClientSet().SchedulerV1alpha1().Dguests(p.Namespace).UpdateStatus(ctx, p, metav1.UpdateOptions{})
+	if err != nil {
+		return framework.AsStatus(err)
+	}
 	return nil
 }

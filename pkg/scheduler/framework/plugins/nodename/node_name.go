@@ -3,8 +3,6 @@ package nodename
 import (
 	"context"
 	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
-	"k8s.io/utils/strings/slices"
-
 	"dguest-scheduler/pkg/scheduler/framework"
 	"dguest-scheduler/pkg/scheduler/framework/plugins/names"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -51,11 +49,12 @@ func (pl *FoodName) Filter(ctx context.Context, _ *framework.CycleState, dguest 
 // Fits actually checks if the dguest fits the food.
 func Fits(dguest *v1alpha1.Dguest, foodInfo *framework.FoodInfo) bool {
 	//return len(dguest.Spec.FoodName) == 0 || dguest.Spec.FoodName == foodInfo.Food().Name
-	foods := make([]string, len(dguest.Status.FoodsInfo))
-	for _, info := range dguest.Status.FoodsInfo {
-		foods = append(foods, info.Name)
-	}
-	return slices.Contains(foods, foodInfo.Food().Name)
+	//foods := make([]string, len(dguest.Status.FoodsInfo))
+	//for _, info := range dguest.Status.FoodsInfo {
+	//	foods = append(foods, info.Name)
+	//}
+	//return slices.Contains(foods, foodInfo.Food().Name)
+	return true
 }
 
 // New initializes a new plugin and returns it.

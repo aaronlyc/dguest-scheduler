@@ -1,19 +1,3 @@
-/*
-Copyright 2014 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package scheduler
 
 import (
@@ -34,6 +18,7 @@ import (
 	internalqueue "dguest-scheduler/pkg/scheduler/internal/queue"
 	"dguest-scheduler/pkg/scheduler/metrics"
 	"dguest-scheduler/pkg/scheduler/util"
+
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -95,190 +80,194 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 
 	schedulingCycleCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	scheduleResult, err := sched.ScheduleDguest(schedulingCycleCtx, fwk, state, dguest)
-	if err != nil {
-		// ScheduleDguest() may have failed because the dguest would not fit on any host, so we try to
-		// preempt, with the expectation that the next time the dguest is tried for scheduling it
-		// will fit due to the preemption. It is also possible that a different dguest will schedule
-		// into the resources that were preempted, but this is harmless.
-		var nominatingInfo *framework.NominatingInfo
-		reason := v1alpha1.DguestReasonUnschedulable
-		if fitError, ok := err.(*framework.FitError); ok {
-			if !fwk.HasPostFilterPlugins() {
-				klog.V(3).InfoS("No PostFilter plugins are registered, so no preemption will be performed")
-			} else {
-				// Run PostFilter plugins to try to make the dguest schedulable in a future scheduling cycle.
-				result, status := fwk.RunPostFilterPlugins(ctx, state, dguest, fitError.Diagnosis.FoodToStatusMap)
-				if status.Code() == framework.Error {
-					klog.ErrorS(nil, "Status after running PostFilter plugins for dguest", "dguest", klog.KObj(dguest), "status", status)
+
+	for _, dish := range dguest.Spec.WantBill {
+		scheduleResult, err := sched.ScheduleDguest(schedulingCycleCtx, fwk, state, dguest, dguestutil.CuisineVersionKey(dish.Cuisine, dish.Version))
+		if err != nil {
+			// ScheduleDguest() may have failed because the dguest would not fit on any host, so we try to
+			// preempt, with the expectation that the next time the dguest is tried for scheduling it
+			// will fit due to the preemption. It is also possible that a different dguest will schedule
+			// into the resources that were preempted, but this is harmless.
+			var nominatingInfo *framework.NominatingInfo
+			reason := v1alpha1.DguestReasonUnschedulable
+			if fitError, ok := err.(*framework.FitError); ok {
+				if !fwk.HasPostFilterPlugins() {
+					klog.V(3).InfoS("No PostFilter plugins are registered, so no preemption will be performed")
 				} else {
-					fitError.Diagnosis.PostFilterMsg = status.Message()
-					klog.V(5).InfoS("Status after running PostFilter plugins for dguest", "dguest", klog.KObj(dguest), "status", status)
+					// Run PostFilter plugins to try to make the dguest schedulable in a future scheduling cycle.
+					result, status := fwk.RunPostFilterPlugins(ctx, state, dguest, fitError.Diagnosis.FoodToStatusMap)
+					if status.Code() == framework.Error {
+						klog.ErrorS(nil, "Status after running PostFilter plugins for dguest", "dguest", klog.KObj(dguest), "status", status)
+					} else {
+						fitError.Diagnosis.PostFilterMsg = status.Message()
+						klog.V(5).InfoS("Status after running PostFilter plugins for dguest", "dguest", klog.KObj(dguest), "status", status)
+					}
+					if result != nil {
+						nominatingInfo = result.NominatingInfo
+					}
 				}
-				if result != nil {
-					nominatingInfo = result.NominatingInfo
-				}
+				// Dguest did not fit anywhere, so it is counted as a failure. If preemption
+				// succeeds, the dguest should get counted as a success the next time we try to
+				// schedule it. (hopefully)
+				metrics.DguestUnschedulable(fwk.ProfileName(), metrics.SinceInSeconds(start))
+			} else if err == ErrNoFoodsAvailable {
+				nominatingInfo = clearNominatedFood
+				// No foods available is counted as unschedulable rather than an error.
+				metrics.DguestUnschedulable(fwk.ProfileName(), metrics.SinceInSeconds(start))
+			} else {
+				nominatingInfo = clearNominatedFood
+				klog.ErrorS(err, "Error selecting food for dguest", "dguest", klog.KObj(dguest))
+				metrics.DguestScheduleError(fwk.ProfileName(), metrics.SinceInSeconds(start))
+				reason = SchedulerError
 			}
-			// Dguest did not fit anywhere, so it is counted as a failure. If preemption
-			// succeeds, the dguest should get counted as a success the next time we try to
-			// schedule it. (hopefully)
-			metrics.DguestUnschedulable(fwk.ProfileName(), metrics.SinceInSeconds(start))
-		} else if err == ErrNoFoodsAvailable {
-			nominatingInfo = clearNominatedFood
-			// No foods available is counted as unschedulable rather than an error.
-			metrics.DguestUnschedulable(fwk.ProfileName(), metrics.SinceInSeconds(start))
-		} else {
-			nominatingInfo = clearNominatedFood
-			klog.ErrorS(err, "Error selecting food for dguest", "dguest", klog.KObj(dguest))
+			sched.FailureHandler(ctx, fwk, dguestInfo, err, reason, nominatingInfo)
+			return
+		}
+
+		metrics.SchedulingAlgorithmLatency.Observe(metrics.SinceInSeconds(start))
+		// Tell the cache to assume that a dguest now is running on a given food, even though it hasn't been bound yet.
+		// This allows us to keep scheduling without waiting on binding to occur.
+		assumedDguestInfo := dguestInfo.DeepCopy()
+		assumedDguest := assumedDguestInfo.Dguest
+		// assume modifies `assumedDguest` by setting FoodName=scheduleResult.SuggestedFood
+		err = sched.assume(assumedDguest, scheduleResult)
+		if err != nil {
 			metrics.DguestScheduleError(fwk.ProfileName(), metrics.SinceInSeconds(start))
-			reason = SchedulerError
+			// This is most probably result of a BUG in retrying logic.
+			// We report an error here so that dguest scheduling can be retried.
+			// This relies on the fact that Error will check if the dguest has been bound
+			// to a food and if so will not add it back to the unscheduled dguests queue
+			// (otherwise this would cause an infinite loop).
+			sched.FailureHandler(ctx, fwk, assumedDguestInfo, err, SchedulerError, clearNominatedFood)
+			return
 		}
-		sched.FailureHandler(ctx, fwk, dguestInfo, err, reason, nominatingInfo)
-		return
-	}
-	metrics.SchedulingAlgorithmLatency.Observe(metrics.SinceInSeconds(start))
-	// Tell the cache to assume that a dguest now is running on a given food, even though it hasn't been bound yet.
-	// This allows us to keep scheduling without waiting on binding to occur.
-	assumedDguestInfo := dguestInfo.DeepCopy()
-	assumedDguest := assumedDguestInfo.Dguest
-	// assume modifies `assumedDguest` by setting FoodName=scheduleResult.SuggestedHost
-	err = sched.assume(assumedDguest, scheduleResult.SuggestedHost)
-	if err != nil {
-		metrics.DguestScheduleError(fwk.ProfileName(), metrics.SinceInSeconds(start))
-		// This is most probably result of a BUG in retrying logic.
-		// We report an error here so that dguest scheduling can be retried.
-		// This relies on the fact that Error will check if the dguest has been bound
-		// to a food and if so will not add it back to the unscheduled dguests queue
-		// (otherwise this would cause an infinite loop).
-		sched.FailureHandler(ctx, fwk, assumedDguestInfo, err, SchedulerError, clearNominatedFood)
-		return
-	}
 
-	// Run the Reserve method of reserve plugins.
-	if sts := fwk.RunReservePluginsReserve(schedulingCycleCtx, state, assumedDguest, scheduleResult.SuggestedHost); !sts.IsSuccess() {
-		metrics.DguestScheduleError(fwk.ProfileName(), metrics.SinceInSeconds(start))
-		// trigger un-reserve to clean up state associated with the reserved Dguest
-		fwk.RunReservePluginsUnreserve(schedulingCycleCtx, state, assumedDguest, scheduleResult.SuggestedHost)
-		if forgetErr := sched.Cache.ForgetDguest(assumedDguest); forgetErr != nil {
-			klog.ErrorS(forgetErr, "Scheduler cache ForgetDguest failed")
-		}
-		sched.FailureHandler(ctx, fwk, assumedDguestInfo, sts.AsError(), SchedulerError, clearNominatedFood)
-		return
-	}
-
-	// Run "permit" plugins.
-	runPermitStatus := fwk.RunPermitPlugins(schedulingCycleCtx, state, assumedDguest, scheduleResult.SuggestedHost)
-	if !runPermitStatus.IsWait() && !runPermitStatus.IsSuccess() {
-		var reason string
-		if runPermitStatus.IsUnschedulable() {
-			metrics.DguestUnschedulable(fwk.ProfileName(), metrics.SinceInSeconds(start))
-			reason = v1alpha1.DguestReasonUnschedulable
-		} else {
+		// Run the Reserve method of reserve plugins.
+		if sts := fwk.RunReservePluginsReserve(schedulingCycleCtx, state, assumedDguest, scheduleResult.SuggestedFood); !sts.IsSuccess() {
 			metrics.DguestScheduleError(fwk.ProfileName(), metrics.SinceInSeconds(start))
-			reason = SchedulerError
+			// trigger un-reserve to clean up state associated with the reserved Dguest
+			fwk.RunReservePluginsUnreserve(schedulingCycleCtx, state, assumedDguest, scheduleResult.SuggestedFood)
+			if forgetErr := sched.Cache.ForgetDguest(assumedDguest); forgetErr != nil {
+				klog.ErrorS(forgetErr, "Scheduler cache ForgetDguest failed")
+			}
+			sched.FailureHandler(ctx, fwk, assumedDguestInfo, sts.AsError(), SchedulerError, clearNominatedFood)
+			return
 		}
-		// One of the plugins returned status different than success or wait.
-		fwk.RunReservePluginsUnreserve(schedulingCycleCtx, state, assumedDguest, scheduleResult.SuggestedHost)
-		if forgetErr := sched.Cache.ForgetDguest(assumedDguest); forgetErr != nil {
-			klog.ErrorS(forgetErr, "Scheduler cache ForgetDguest failed")
-		}
-		sched.FailureHandler(ctx, fwk, assumedDguestInfo, runPermitStatus.AsError(), reason, clearNominatedFood)
-		return
-	}
 
-	// At the end of a successful scheduling cycle, pop and move up Dguests if needed.
-	if len(dguestsToActivate.Map) != 0 {
-		sched.SchedulingQueue.Activate(dguestsToActivate.Map)
-		// Clear the entries after activation.
-		dguestsToActivate.Map = make(map[string]*v1alpha1.Dguest)
-	}
-
-	// bind the dguest to its host asynchronously (we can do this b/c of the assumption step above).
-	go func() {
-		bindingCycleCtx, cancel := context.WithCancel(ctx)
-		defer cancel()
-		metrics.SchedulerGoroutines.WithLabelValues(metrics.Binding).Inc()
-		defer metrics.SchedulerGoroutines.WithLabelValues(metrics.Binding).Dec()
-
-		waitOnPermitStatus := fwk.WaitOnPermit(bindingCycleCtx, assumedDguest)
-		if !waitOnPermitStatus.IsSuccess() {
+		// Run "permit" plugins.
+		runPermitStatus := fwk.RunPermitPlugins(schedulingCycleCtx, state, assumedDguest, scheduleResult.SuggestedFood)
+		if !runPermitStatus.IsWait() && !runPermitStatus.IsSuccess() {
 			var reason string
-			if waitOnPermitStatus.IsUnschedulable() {
+			if runPermitStatus.IsUnschedulable() {
 				metrics.DguestUnschedulable(fwk.ProfileName(), metrics.SinceInSeconds(start))
 				reason = v1alpha1.DguestReasonUnschedulable
 			} else {
 				metrics.DguestScheduleError(fwk.ProfileName(), metrics.SinceInSeconds(start))
 				reason = SchedulerError
 			}
-			// trigger un-reserve plugins to clean up state associated with the reserved Dguest
-			fwk.RunReservePluginsUnreserve(bindingCycleCtx, state, assumedDguest, scheduleResult.SuggestedHost)
+			// One of the plugins returned status different than success or wait.
+			fwk.RunReservePluginsUnreserve(schedulingCycleCtx, state, assumedDguest, scheduleResult.SuggestedFood)
 			if forgetErr := sched.Cache.ForgetDguest(assumedDguest); forgetErr != nil {
-				klog.ErrorS(forgetErr, "scheduler cache ForgetDguest failed")
-			} else {
-				// "Forget"ing an assumed Dguest in binding cycle should be treated as a DguestDelete event,
-				// as the assumed Dguest had occupied a certain amount of resources in scheduler cache.
-				// TODO(#103853): de-duplicate the logic.
-				// Avoid moving the assumed Dguest itself as it's always Unschedulable.
-				// It's intentional to "defer" this operation; otherwise MoveAllToActiveOrBackoffQueue() would
-				// update `q.moveRequest` and thus move the assumed dguest to backoffQ anyways.
-				defer sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(internalqueue.AssignedDguestDelete, func(dguest *v1alpha1.Dguest) bool {
-					return assumedDguest.UID != dguest.UID
-				})
+				klog.ErrorS(forgetErr, "Scheduler cache ForgetDguest failed")
 			}
-			sched.FailureHandler(ctx, fwk, assumedDguestInfo, waitOnPermitStatus.AsError(), reason, clearNominatedFood)
+			sched.FailureHandler(ctx, fwk, assumedDguestInfo, runPermitStatus.AsError(), reason, clearNominatedFood)
 			return
 		}
 
-		// Run "prebind" plugins.
-		preBindStatus := fwk.RunPreBindPlugins(bindingCycleCtx, state, assumedDguest, scheduleResult.SuggestedHost)
-		if !preBindStatus.IsSuccess() {
-			metrics.DguestScheduleError(fwk.ProfileName(), metrics.SinceInSeconds(start))
-			// trigger un-reserve plugins to clean up state associated with the reserved Dguest
-			fwk.RunReservePluginsUnreserve(bindingCycleCtx, state, assumedDguest, scheduleResult.SuggestedHost)
-			if forgetErr := sched.Cache.ForgetDguest(assumedDguest); forgetErr != nil {
-				klog.ErrorS(forgetErr, "scheduler cache ForgetDguest failed")
-			} else {
-				// "Forget"ing an assumed Dguest in binding cycle should be treated as a DguestDelete event,
-				// as the assumed Dguest had occupied a certain amount of resources in scheduler cache.
-				// TODO(#103853): de-duplicate the logic.
-				sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(internalqueue.AssignedDguestDelete, nil)
-			}
-			sched.FailureHandler(ctx, fwk, assumedDguestInfo, preBindStatus.AsError(), SchedulerError, clearNominatedFood)
-			return
-		}
-
-		err := sched.bind(bindingCycleCtx, fwk, assumedDguest, scheduleResult.SuggestedHost, state)
-		if err != nil {
-			metrics.DguestScheduleError(fwk.ProfileName(), metrics.SinceInSeconds(start))
-			// trigger un-reserve plugins to clean up state associated with the reserved Dguest
-			fwk.RunReservePluginsUnreserve(bindingCycleCtx, state, assumedDguest, scheduleResult.SuggestedHost)
-			if err := sched.Cache.ForgetDguest(assumedDguest); err != nil {
-				klog.ErrorS(err, "scheduler cache ForgetDguest failed")
-			} else {
-				// "Forget"ing an assumed Dguest in binding cycle should be treated as a DguestDelete event,
-				// as the assumed Dguest had occupied a certain amount of resources in scheduler cache.
-				// TODO(#103853): de-duplicate the logic.
-				sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(internalqueue.AssignedDguestDelete, nil)
-			}
-			sched.FailureHandler(ctx, fwk, assumedDguestInfo, fmt.Errorf("binding rejected: %w", err), SchedulerError, clearNominatedFood)
-			return
-		}
-		// Calculating foodResourceString can be heavy. Avoid it if klog verbosity is below 2.
-		klog.V(2).InfoS("Successfully bound dguest to food", "dguest", klog.KObj(dguest), "food", scheduleResult.SuggestedHost, "evaluatedFoods", scheduleResult.EvaluatedFoods, "feasibleFoods", scheduleResult.FeasibleFoods)
-		metrics.DguestScheduled(fwk.ProfileName(), metrics.SinceInSeconds(start))
-		metrics.DguestSchedulingAttempts.Observe(float64(dguestInfo.Attempts))
-		metrics.DguestSchedulingDuration.WithLabelValues(getAttemptsLabel(dguestInfo)).Observe(metrics.SinceInSeconds(dguestInfo.InitialAttemptTimestamp))
-
-		// Run "postbind" plugins.
-		fwk.RunPostBindPlugins(bindingCycleCtx, state, assumedDguest, scheduleResult.SuggestedHost)
-
-		// At the end of a successful binding cycle, move up Dguests if needed.
+		// At the end of a successful scheduling cycle, pop and move up Dguests if needed.
 		if len(dguestsToActivate.Map) != 0 {
 			sched.SchedulingQueue.Activate(dguestsToActivate.Map)
-			// Unlike the logic in scheduling cycle, we don't bother deleting the entries
-			// as `dguestsToActivate.Map` is no longer consumed.
+			// Clear the entries after activation.
+			dguestsToActivate.Map = make(map[string]*v1alpha1.Dguest)
 		}
-	}()
+
+		// bind the dguest to its host asynchronously (we can do this b/c of the assumption step above).
+		go func() {
+			bindingCycleCtx, cancel := context.WithCancel(ctx)
+			defer cancel()
+			metrics.SchedulerGoroutines.WithLabelValues(metrics.Binding).Inc()
+			defer metrics.SchedulerGoroutines.WithLabelValues(metrics.Binding).Dec()
+
+			waitOnPermitStatus := fwk.WaitOnPermit(bindingCycleCtx, assumedDguest)
+			if !waitOnPermitStatus.IsSuccess() {
+				var reason string
+				if waitOnPermitStatus.IsUnschedulable() {
+					metrics.DguestUnschedulable(fwk.ProfileName(), metrics.SinceInSeconds(start))
+					reason = v1alpha1.DguestReasonUnschedulable
+				} else {
+					metrics.DguestScheduleError(fwk.ProfileName(), metrics.SinceInSeconds(start))
+					reason = SchedulerError
+				}
+				// trigger un-reserve plugins to clean up state associated with the reserved Dguest
+				fwk.RunReservePluginsUnreserve(bindingCycleCtx, state, assumedDguest, scheduleResult.SuggestedFood)
+				if forgetErr := sched.Cache.ForgetDguest(assumedDguest); forgetErr != nil {
+					klog.ErrorS(forgetErr, "scheduler cache ForgetDguest failed")
+				} else {
+					// "Forget"ing an assumed Dguest in binding cycle should be treated as a DguestDelete event,
+					// as the assumed Dguest had occupied a certain amount of resources in scheduler cache.
+					// TODO(#103853): de-duplicate the logic.
+					// Avoid moving the assumed Dguest itself as it's always Unschedulable.
+					// It's intentional to "defer" this operation; otherwise MoveAllToActiveOrBackoffQueue() would
+					// update `q.moveRequest` and thus move the assumed dguest to backoffQ anyways.
+					defer sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(internalqueue.AssignedDguestDelete, func(dguest *v1alpha1.Dguest) bool {
+						return assumedDguest.UID != dguest.UID
+					})
+				}
+				sched.FailureHandler(ctx, fwk, assumedDguestInfo, waitOnPermitStatus.AsError(), reason, clearNominatedFood)
+				return
+			}
+
+			// Run "prebind" plugins.
+			preBindStatus := fwk.RunPreBindPlugins(bindingCycleCtx, state, assumedDguest, scheduleResult.SuggestedFood)
+			if !preBindStatus.IsSuccess() {
+				metrics.DguestScheduleError(fwk.ProfileName(), metrics.SinceInSeconds(start))
+				// trigger un-reserve plugins to clean up state associated with the reserved Dguest
+				fwk.RunReservePluginsUnreserve(bindingCycleCtx, state, assumedDguest, scheduleResult.SuggestedFood)
+				if forgetErr := sched.Cache.ForgetDguest(assumedDguest); forgetErr != nil {
+					klog.ErrorS(forgetErr, "scheduler cache ForgetDguest failed")
+				} else {
+					// "Forget"ing an assumed Dguest in binding cycle should be treated as a DguestDelete event,
+					// as the assumed Dguest had occupied a certain amount of resources in scheduler cache.
+					// TODO(#103853): de-duplicate the logic.
+					sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(internalqueue.AssignedDguestDelete, nil)
+				}
+				sched.FailureHandler(ctx, fwk, assumedDguestInfo, preBindStatus.AsError(), SchedulerError, clearNominatedFood)
+				return
+			}
+
+			err := sched.bind(bindingCycleCtx, fwk, assumedDguest, scheduleResult, state)
+			if err != nil {
+				metrics.DguestScheduleError(fwk.ProfileName(), metrics.SinceInSeconds(start))
+				// trigger un-reserve plugins to clean up state associated with the reserved Dguest
+				fwk.RunReservePluginsUnreserve(bindingCycleCtx, state, assumedDguest, scheduleResult.SuggestedFood)
+				if err := sched.Cache.ForgetDguest(assumedDguest); err != nil {
+					klog.ErrorS(err, "scheduler cache ForgetDguest failed")
+				} else {
+					// "Forget"ing an assumed Dguest in binding cycle should be treated as a DguestDelete event,
+					// as the assumed Dguest had occupied a certain amount of resources in scheduler cache.
+					// TODO(#103853): de-duplicate the logic.
+					sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(internalqueue.AssignedDguestDelete, nil)
+				}
+				sched.FailureHandler(ctx, fwk, assumedDguestInfo, fmt.Errorf("binding rejected: %w", err), SchedulerError, clearNominatedFood)
+				return
+			}
+			// Calculating foodResourceString can be heavy. Avoid it if klog verbosity is below 2.
+			klog.V(2).InfoS("Successfully bound dguest to food", "dguest", klog.KObj(dguest), "food", scheduleResult.SuggestedFood, "evaluatedFoods", scheduleResult.EvaluatedFoods, "feasibleFoods", scheduleResult.FeasibleFoods)
+			metrics.DguestScheduled(fwk.ProfileName(), metrics.SinceInSeconds(start))
+			metrics.DguestSchedulingAttempts.Observe(float64(dguestInfo.Attempts))
+			metrics.DguestSchedulingDuration.WithLabelValues(getAttemptsLabel(dguestInfo)).Observe(metrics.SinceInSeconds(dguestInfo.InitialAttemptTimestamp))
+
+			// Run "postbind" plugins.
+			fwk.RunPostBindPlugins(bindingCycleCtx, state, assumedDguest, scheduleResult.SuggestedFood)
+
+			// At the end of a successful binding cycle, move up Dguests if needed.
+			if len(dguestsToActivate.Map) != 0 {
+				sched.SchedulingQueue.Activate(dguestsToActivate.Map)
+				// Unlike the logic in scheduling cycle, we don't bother deleting the entries
+				// as `dguestsToActivate.Map` is no longer consumed.
+			}
+		}()
+	}
 }
 
 func (sched *Scheduler) frameworkForDguest(dguest *v1alpha1.Dguest) (framework.Framework, error) {
@@ -312,29 +301,29 @@ func (sched *Scheduler) skipDguestSchedule(fwk framework.Framework, dguest *v1al
 // scheduleDguest tries to schedule the given dguest to one of the foods in the food list.
 // If it succeeds, it will return the name of the food.
 // If it fails, it will return a FitError with reasons.
-func (sched *Scheduler) scheduleDguest(ctx context.Context, fwk framework.Framework, state *framework.CycleState, dguest *v1alpha1.Dguest) (result ScheduleResult, err error) {
+func (sched *Scheduler) scheduleDguest(ctx context.Context, fwk framework.Framework, state *framework.CycleState, dguest *v1alpha1.Dguest, cuisineVersion string) (results ScheduleResult, err error) {
 	trace := utiltrace.New("Scheduling", utiltrace.Field{Key: "namespace", Value: dguest.Namespace}, utiltrace.Field{Key: "name", Value: dguest.Name})
 	defer trace.LogIfLong(100 * time.Millisecond)
 
-	if err := sched.Cache.UpdateSnapshot(sched.foodInfoSnapshot); err != nil {
-		return result, err
+	if err := sched.Cache.UpdateSnapshot(sched.foodInfoSnapshot, cuisineVersion); err != nil {
+		return results, err
 	}
 	trace.Step("Snapshotting scheduler cache and food infos done")
 
-	if sched.foodInfoSnapshot.NumFoods() == 0 {
-		return result, ErrNoFoodsAvailable
+	if sched.foodInfoSnapshot.NumFoods(cuisineVersion) == 0 {
+		return results, ErrNoFoodsAvailable
 	}
 
-	feasibleFoods, diagnosis, err := sched.findFoodsThatFitDguest(ctx, fwk, state, dguest)
+	feasibleFoods, diagnosis, err := sched.findFoodsThatFitDguest(ctx, fwk, state, dguest, cuisineVersion)
 	if err != nil {
-		return result, err
+		return results, err
 	}
-	trace.Step("Computing predicates done")
+	trace.Step(fmt.Sprintf("Computing predicates %s done", cuisineVersion))
 
 	if len(feasibleFoods) == 0 {
-		return result, &framework.FitError{
+		return results, &framework.FitError{
 			Dguest:      dguest,
-			NumAllFoods: sched.foodInfoSnapshot.NumFoods(),
+			NumAllFoods: sched.foodInfoSnapshot.NumFoods(cuisineVersion),
 			Diagnosis:   diagnosis,
 		}
 	}
@@ -342,22 +331,26 @@ func (sched *Scheduler) scheduleDguest(ctx context.Context, fwk framework.Framew
 	// When only one food after predicate, just use it.
 	if len(feasibleFoods) == 1 {
 		return ScheduleResult{
-			SuggestedHost:  feasibleFoods[0].Name,
+			SuggestedFood: &v1alpha1.FoodInfoBase{
+				Namespace:      feasibleFoods[0].Namespace,
+				Name:           feasibleFoods[0].Name,
+				CuisineVersion: cuisineVersion,
+			},
 			EvaluatedFoods: 1 + len(diagnosis.FoodToStatusMap),
 			FeasibleFoods:  1,
 		}, nil
 	}
 
-	priorityList, err := prioritizeFoods(ctx, sched.Extenders, fwk, state, dguest, feasibleFoods)
+	priorityList, err := prioritizeFoods(ctx, sched.Extenders, fwk, state, dguest, feasibleFoods, cuisineVersion)
 	if err != nil {
-		return result, err
+		return results, err
 	}
 
-	host, err := selectHost(priorityList)
+	food, err := selectFood(priorityList)
 	trace.Step("Prioritizing done")
 
 	return ScheduleResult{
-		SuggestedHost:  host,
+		SuggestedFood:  food,
 		EvaluatedFoods: len(feasibleFoods) + len(diagnosis.FoodToStatusMap),
 		FeasibleFoods:  len(feasibleFoods),
 	}, err
@@ -365,16 +358,16 @@ func (sched *Scheduler) scheduleDguest(ctx context.Context, fwk framework.Framew
 
 // Filters the foods to find the ones that fit the dguest based on the framework
 // filter plugins and filter extenders.
-func (sched *Scheduler) findFoodsThatFitDguest(ctx context.Context, fwk framework.Framework, state *framework.CycleState, dguest *v1alpha1.Dguest) ([]*v1alpha1.Food, framework.Diagnosis, error) {
+func (sched *Scheduler) findFoodsThatFitDguest(ctx context.Context, fwk framework.Framework, state *framework.CycleState, dguest *v1alpha1.Dguest, cuisineVersion string) ([]*v1alpha1.Food, framework.Diagnosis, error) {
 	diagnosis := framework.Diagnosis{
 		FoodToStatusMap:      make(framework.FoodToStatusMap),
 		UnschedulablePlugins: sets.NewString(),
 	}
 
-	allFoods, err := sched.foodInfoSnapshot.FoodInfos().List()
-	if err != nil {
-		return nil, diagnosis, err
-	}
+	allFoods := sched.foodInfoSnapshot.FoodInfos().List(cuisineVersion)
+	// if err != nil {
+	// 	return nil, diagnosis, err
+	// }
 	// Run "prefilter" plugins.
 	preRes, s := fwk.RunPreFilterPlugins(ctx, state, dguest)
 	if !s.IsSuccess() {
@@ -410,7 +403,10 @@ func (sched *Scheduler) findFoodsThatFitDguest(ctx context.Context, fwk framewor
 	if !preRes.AllFoods() {
 		foods = make([]*framework.FoodInfo, 0, len(preRes.FoodNames))
 		for n := range preRes.FoodNames {
-			nInfo, err := sched.foodInfoSnapshot.FoodInfos().Get(n)
+			nInfo, err := sched.foodInfoSnapshot.FoodInfos().Get(&v1alpha1.FoodInfoBase{
+				Name:           n,
+				CuisineVersion: cuisineVersion,
+			})
 			if err != nil {
 				return nil, diagnosis, err
 			}
@@ -613,6 +609,7 @@ func prioritizeFoods(
 	state *framework.CycleState,
 	dguest *v1alpha1.Dguest,
 	foods []*v1alpha1.Food,
+	cuisineVersion string,
 ) (framework.FoodScoreList, error) {
 	// If no priority configs are provided, then all foods will have a score of one.
 	// This is required to generate the priority list in the required format
@@ -620,7 +617,11 @@ func prioritizeFoods(
 		result := make(framework.FoodScoreList, 0, len(foods))
 		for i := range foods {
 			result = append(result, framework.FoodScore{
-				Name:  foods[i].Name,
+				FoodInfoBase: v1alpha1.FoodInfoBase{
+					Namespace:      foods[i].Namespace,
+					Name:           foods[i].Name,
+					CuisineVersion: cuisineVersion,
+				},
 				Score: 1,
 			})
 		}
@@ -653,7 +654,11 @@ func prioritizeFoods(
 	result := make(framework.FoodScoreList, 0, len(foods))
 
 	for i := range foods {
-		result = append(result, framework.FoodScore{Name: foods[i].Name, Score: 0})
+		result = append(result, framework.FoodScore{
+			FoodInfoBase: v1alpha1.FoodInfoBase{
+				Namespace:      foods[i].Namespace,
+				Name:           foods[i].Name,
+				CuisineVersion: cuisineVersion}, Score: 0})
 		for j := range scoresMap {
 			result[i].Score += scoresMap[j][i].Score
 		}
@@ -708,34 +713,42 @@ func prioritizeFoods(
 	return result, nil
 }
 
-// selectHost takes a prioritized list of foods and then picks one
+// selectFood takes a prioritized list of foods and then picks one
 // in a reservoir sampling manner from the foods that had the highest score.
-func selectHost(foodScoreList framework.FoodScoreList) (string, error) {
+func selectFood(foodScoreList framework.FoodScoreList) (*v1alpha1.FoodInfoBase, error) {
 	if len(foodScoreList) == 0 {
-		return "", fmt.Errorf("empty priorityList")
+		return nil, fmt.Errorf("empty priorityList")
 	}
 	maxScore := foodScoreList[0].Score
-	selected := foodScoreList[0].Name
+	selectedName := foodScoreList[0].Name
+	selectedNamespace := foodScoreList[0].Namespace
+	selectedCuisineVersion := foodScoreList[0].CuisineVersion
 	cntOfMaxScore := 1
 	for _, ns := range foodScoreList[1:] {
 		if ns.Score > maxScore {
 			maxScore = ns.Score
-			selected = ns.Name
+			selectedName = ns.Name
+			selectedNamespace = ns.Namespace
 			cntOfMaxScore = 1
 		} else if ns.Score == maxScore {
 			cntOfMaxScore++
 			if rand.Intn(cntOfMaxScore) == 0 {
 				// Replace the candidate with probability of 1/cntOfMaxScore
-				selected = ns.Name
+				selectedName = ns.Name
+				selectedNamespace = ns.Namespace
 			}
 		}
 	}
-	return selected, nil
+	return &v1alpha1.FoodInfoBase{
+		Namespace:      selectedNamespace,
+		Name:           selectedName,
+		CuisineVersion: selectedCuisineVersion,
+	}, nil
 }
 
 // assume signals to the cache that a dguest is already in the cache, so that binding can be asynchronous.
 // assume modifies `assumed`.
-func (sched *Scheduler) assume(assumed *v1alpha1.Dguest, host string) error {
+func (sched *Scheduler) assume(assumed *v1alpha1.Dguest, selectFood ScheduleResult) error {
 	// Optimistically assume that the binding will succeed and send it to apiserver
 	// in the background.
 	// If the binding fails, scheduler will release resources allocated to assumed dguest
@@ -747,11 +760,20 @@ func (sched *Scheduler) assume(assumed *v1alpha1.Dguest, host string) error {
 	//}
 	//slices.Contains(hosts, host)
 
-	assumed.Status.FoodsInfo = append(assumed.Status.FoodsInfo, v1alpha1.DguestFoodInfo{
-		Namespace:      "",
-		Name:           host,
+	// assumed.Status.FoodsInfo = append(assumed.Status.FoodsInfo, v1alpha1.DguestFoodInfo{
+	// 	Namespace:      "",
+	// 	Name:           host,
+	// 	SchedulerdTime: metav1.Now(),
+	// 	Condition:      v1alpha1.DguestCondition{},
+	// })
+
+	if assumed.Status.FoodsInfo == nil {
+		assumed.Status.FoodsInfo = make(map[string]v1alpha1.FoodsInfoSlice)
+	}
+	assumed.Status.FoodsInfo[selectFood.SuggestedFood.CuisineVersion] = append(assumed.Status.FoodsInfo[selectFood.SuggestedFood.CuisineVersion], v1alpha1.DguestFoodInfo{
+		Namespace:      selectFood.SuggestedFood.Namespace,
+		Name:           selectFood.SuggestedFood.Name,
 		SchedulerdTime: metav1.Now(),
-		Condition:      v1alpha1.DguestFoodCondition{},
 	})
 
 	if err := sched.Cache.AssumeDguest(assumed); err != nil {
@@ -769,16 +791,16 @@ func (sched *Scheduler) assume(assumed *v1alpha1.Dguest, host string) error {
 // bind binds a dguest to a given food defined in a binding object.
 // The precedence for binding is: (1) extenders and (2) framework plugins.
 // We expect this to run asynchronously, so we handle binding metrics internally.
-func (sched *Scheduler) bind(ctx context.Context, fwk framework.Framework, assumed *v1alpha1.Dguest, targetFood string, state *framework.CycleState) (err error) {
+func (sched *Scheduler) bind(ctx context.Context, fwk framework.Framework, assumed *v1alpha1.Dguest, target ScheduleResult, state *framework.CycleState) (err error) {
 	defer func() {
-		sched.finishBinding(fwk, assumed, targetFood, err)
+		sched.finishBinding(fwk, assumed, target, err)
 	}()
 
-	bound, err := sched.extendersBinding(assumed, targetFood)
+	bound, err := sched.extendersBinding(assumed, target.SuggestedFood.Name)
 	if bound {
 		return err
 	}
-	bindStatus := fwk.RunBindPlugins(ctx, state, assumed, targetFood)
+	bindStatus := fwk.RunBindPlugins(ctx, state, assumed, target.SuggestedFood)
 	if bindStatus.IsSuccess() {
 		return nil
 	}
@@ -802,7 +824,7 @@ func (sched *Scheduler) extendersBinding(dguest *v1alpha1.Dguest, food string) (
 	return false, nil
 }
 
-func (sched *Scheduler) finishBinding(fwk framework.Framework, assumed *v1alpha1.Dguest, targetFood string, err error) {
+func (sched *Scheduler) finishBinding(fwk framework.Framework, assumed *v1alpha1.Dguest, targets ScheduleResult, err error) {
 	if finErr := sched.Cache.FinishBinding(assumed); finErr != nil {
 		klog.ErrorS(finErr, "Scheduler cache FinishBinding failed")
 	}
@@ -811,7 +833,7 @@ func (sched *Scheduler) finishBinding(fwk framework.Framework, assumed *v1alpha1
 		return
 	}
 
-	fwk.EventRecorder().Eventf(assumed, nil, v1.EventTypeNormal, "Scheduled", "Binding", "Successfully assigned %v/%v to %v", assumed.Namespace, assumed.Name, targetFood)
+	fwk.EventRecorder().Eventf(assumed, nil, v1.EventTypeNormal, "Scheduled", "Binding", "Successfully assigned %v/%v to %v", assumed.Namespace, assumed.Name, targets)
 }
 
 func getAttemptsLabel(p *framework.QueuedDguestInfo) string {
@@ -890,7 +912,7 @@ func (sched *Scheduler) handleSchedulingFailure(ctx context.Context, fwk framewo
 
 	msg := truncateMessage(errMsg)
 	fwk.EventRecorder().Eventf(dguest, nil, v1.EventTypeWarning, "FailedScheduling", "Scheduling", msg)
-	if err := updateDguest(ctx, sched.schdulerClient, dguest, &v1alpha1.DguestFoodCondition{
+	if err := updateDguest(ctx, sched.schdulerClient, dguest, &v1alpha1.DguestCondition{
 		Type:    v1alpha1.DguestScheduled,
 		Status:  v1alpha1.ConditionFalse,
 		Reason:  reason,
@@ -910,7 +932,7 @@ func truncateMessage(message string) string {
 	return message[:max-len(suffix)] + suffix
 }
 
-func updateDguest(ctx context.Context, client versioned.Interface, dguest *v1alpha1.Dguest, condition *v1alpha1.DguestFoodCondition, nominatingInfo *framework.NominatingInfo) error {
+func updateDguest(ctx context.Context, client versioned.Interface, dguest *v1alpha1.Dguest, condition *v1alpha1.DguestCondition, nominatingInfo *framework.NominatingInfo) error {
 	klog.V(3).InfoS("Updating dguest condition", "dguest", klog.KObj(dguest), "conditionType", condition.Type, "conditionStatus", condition.Status, "conditionReason", condition.Reason)
 	dguestStatusCopy := dguest.Status.DeepCopy()
 	// NominatedFoodName is updated only if we are trying to set it, and the value is

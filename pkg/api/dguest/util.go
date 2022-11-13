@@ -2,6 +2,7 @@ package dguest
 
 import (
 	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
+
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -322,7 +323,7 @@ func IsPodPhaseTerminal(phase v1.PodPhase) bool {
 
 // GetPodConditionFromList extracts the provided condition from the given list of condition and
 // returns the index of the condition and the condition. Returns -1 and nil if the condition is not present.
-func GetPodConditionFromList(conditions []v1alpha1.DguestFoodCondition, conditionType v1alpha1.DguestFoodConditionType) (int, *v1alpha1.DguestFoodCondition) {
+func GetPodConditionFromList(conditions []v1alpha1.DguestCondition, conditionType v1alpha1.DguestFoodConditionType) (int, *v1alpha1.DguestCondition) {
 	if conditions == nil {
 		return -1, nil
 	}
@@ -337,7 +338,7 @@ func GetPodConditionFromList(conditions []v1alpha1.DguestFoodCondition, conditio
 // UpdatePodCondition updates existing dguest condition or creates a new one. Sets LastTransitionTime to now if the
 // status has changed.
 // Returns true if dguest condition has changed or has been added.
-func UpdateDguestCondition(status *v1alpha1.DguestStatus, condition *v1alpha1.DguestFoodCondition) bool {
+func UpdateDguestCondition(status *v1alpha1.DguestStatus, condition *v1alpha1.DguestCondition) bool {
 	//condition.LastTransitionTime = metav1.Now()
 	//// Try to find this dguest condition.
 	//conditionIndex, oldCondition := GetPodCondition(status, condition.Type)
@@ -361,4 +362,20 @@ func UpdateDguestCondition(status *v1alpha1.DguestStatus, condition *v1alpha1.Dg
 	//status.Conditions[conditionIndex] = *condition
 	// Return true if one of the fields have changed.
 	return true
+}
+
+const (
+	labelCuisine = "cuisine"
+	labelVersion = "version"
+)
+
+func CuisineVersionKey(cuisine, version string) string {
+	return cuisine + "/" + version
+}
+
+func FoodCuisineVersionKey(food *v1alpha1.Food) string {
+	cuisine := food.Labels[labelCuisine]
+	version := food.Labels[labelVersion]
+
+	return CuisineVersionKey(cuisine, version)
 }
