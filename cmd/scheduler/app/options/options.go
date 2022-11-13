@@ -19,7 +19,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	apiserveroptions "k8s.io/apiserver/pkg/server/options"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	clientset "k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -87,9 +86,9 @@ func NewOptions() *Options {
 	o.Authorization.RemoteKubeConfigFileOptional = true
 
 	// Set the PairName but leave certificate directory blank to generate in-memory by default
-	o.SecureServing.ServerCert.CertDirectory = ""
-	o.SecureServing.ServerCert.PairName = "kube-scheduler"
-	o.SecureServing.BindPort = schedulerconfig.DefaultKubeSchedulerPort
+	//o.SecureServing.ServerCert.CertDirectory = ""
+	//o.SecureServing.ServerCert.PairName = "dguest-scheduler"
+	o.SecureServing.BindPort = schedulerconfig.DefaultSchedulerPort
 
 	o.initFlags()
 
@@ -175,12 +174,12 @@ func (o *Options) initFlags() {
 	fs.StringVar(&o.WriteConfigTo, "write-config-to", o.WriteConfigTo, "If set, write the configuration values to this file and exit.")
 	fs.StringVar(&o.Master, "master", o.Master, "The address of the Kubernetes API server (overrides any value in kubeconfig)")
 
-	o.SecureServing.AddFlags(nfs.FlagSet("secure serving"))
-	o.Authentication.AddFlags(nfs.FlagSet("authentication"))
-	o.Authorization.AddFlags(nfs.FlagSet("authorization"))
+	//o.SecureServing.AddFlags(nfs.FlagSet("secure serving"))
+	//o.Authentication.AddFlags(nfs.FlagSet("authentication"))
+	//o.Authorization.AddFlags(nfs.FlagSet("authorization"))
 	o.Deprecated.AddFlags(nfs.FlagSet("deprecated"))
 	options.BindLeaderElectionFlags(o.LeaderElection, nfs.FlagSet("leader election"))
-	utilfeature.DefaultMutableFeatureGate.AddFlag(nfs.FlagSet("feature gate"))
+	//utilfeature.DefaultMutableFeatureGate.AddFlag(nfs.FlagSet("feature gate"))
 	o.Metrics.AddFlags(nfs.FlagSet("metrics"))
 	logsapi.AddFlags(o.Logs, nfs.FlagSet("logs"))
 

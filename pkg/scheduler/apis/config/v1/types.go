@@ -19,9 +19,9 @@ const (
 	// SchedulerDefaultProviderName defines the default provider names
 	SchedulerDefaultProviderName = "DefaultProvider"
 
-	// DefaultKubeSchedulerPort is the default port for the scheduler status server.
+	// DefaultSchedulerPort is the default port for the scheduler status server.
 	// May be overridden by a flag at startup.
-	DefaultKubeSchedulerPort = 10259
+	DefaultSchedulerPort = 10259
 
 	DefaultSchedulerName = "ac-scheduler"
 )
