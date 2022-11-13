@@ -117,6 +117,8 @@ spec:
                 type: array
               foodInfo:
                 properties:
+                  coreRunNode:
+                    type: string
                   items:
                     items:
                       properties:
@@ -143,8 +145,6 @@ spec:
         type: object
     served: true
     storage: true
-    subresources:
-      status: {}
 status:
   acceptedNames:
     kind: ""

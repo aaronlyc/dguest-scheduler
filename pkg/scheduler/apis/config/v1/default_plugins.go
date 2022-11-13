@@ -13,7 +13,7 @@ func getDefaultPlugins() *Plugins {
 			Enabled: []Plugin{
 				{Name: names.PrioritySort},
 				//{Name: names.FoodUnschedulable},
-				{Name: names.FoodName},
+				{Name: names.NodeAvailability},
 				//{Name: names.TaintToleration, Weight: 3},
 				//{Name: names.FoodAffinity, Weight: 2},
 				//{Name: names.FoodPorts},

@@ -523,22 +523,22 @@ func (f *frameworkImpl) expandMultiPointPlugins(profile *v1.SchedulerProfile, pl
 func fillEventToPluginMap(p framework.Plugin, eventToPlugins map[framework.ClusterEvent]sets.String) {
 	ext, ok := p.(framework.EnqueueExtensions)
 	if !ok {
-		// If interface EnqueueExtensions is not implemented, register the default events
+		// If interface EnqueueExtensions is not implemented, register the default eventsToRegister
 		// to the plugin. This is to ensure backward compatibility.
 		registerClusterEvents(p.Name(), eventToPlugins, allClusterEvents)
 		return
 	}
 
-	events := ext.EventsToRegister()
+	eventsToRegister := ext.EventsToRegister()
 	// It's rare that a plugin implements EnqueueExtensions but returns nil.
 	// We treat it as: the plugin is not interested in any event, and hence dguest failed by that plugin
 	// cannot be moved by any regular cluster event.
-	if len(events) == 0 {
+	if len(eventsToRegister) == 0 {
 		klog.InfoS("Plugin's EventsToRegister() returned nil", "plugin", p.Name())
 		return
 	}
 	// The most common case: a plugin implements EnqueueExtensions and returns non-nil result.
-	registerClusterEvents(p.Name(), eventToPlugins, events)
+	registerClusterEvents(p.Name(), eventToPlugins, eventsToRegister)
 }
 
 func registerClusterEvents(name string, eventToPlugins map[framework.ClusterEvent]sets.String, evts []framework.ClusterEvent) {

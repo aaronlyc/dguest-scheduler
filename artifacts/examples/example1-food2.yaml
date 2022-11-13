@@ -21,6 +21,7 @@ status:
     gate: "110"
   foodInfo:
     version: v1
+    coreRunNode: node1
     items:
       - namespace: example1-ms1
         name: ms1-p2

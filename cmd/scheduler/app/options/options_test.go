@@ -32,7 +32,6 @@ import (
 	"dguest-scheduler/pkg/scheduler/apis/config/latest"
 	configtesting "dguest-scheduler/pkg/scheduler/apis/config/testing"
 	"dguest-scheduler/pkg/scheduler/apis/config/testing/defaults"
-	"dguest-scheduler/pkg/scheduler/framework/plugins/names"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	apiserveroptions "k8s.io/apiserver/pkg/server/options"
@@ -833,16 +832,10 @@ profiles:
 									{Name: "foo"},
 									{Name: "bar"},
 								},
-								Disabled: []v12.Plugin{
-									{Name: names.VolumeBinding},
-								},
 							},
 							PreBind: v12.PluginSet{
 								Enabled: []v12.Plugin{
 									{Name: "foo"},
-								},
-								Disabled: []v12.Plugin{
-									{Name: names.VolumeBinding},
 								},
 							},
 							MultiPoint: defaults.PluginsV1.MultiPoint,
@@ -1178,15 +1171,6 @@ profiles:
 						SchedulerName: "foo-profile",
 						Plugins: &v12.Plugins{
 							MultiPoint: defaults.PluginsV1.MultiPoint,
-							Reserve: v12.PluginSet{
-								Enabled: []v12.Plugin{
-									{Name: "foo"},
-									{Name: names.VolumeBinding},
-								},
-								Disabled: []v12.Plugin{
-									{Name: names.VolumeBinding},
-								},
-							},
 						},
 						PluginConfig: defaults.PluginConfigsV1,
 					},
@@ -1194,11 +1178,6 @@ profiles:
 						SchedulerName: "bar-profile",
 						Plugins: &v12.Plugins{
 							MultiPoint: defaults.PluginsV1.MultiPoint,
-							PreBind: v12.PluginSet{
-								Disabled: []v12.Plugin{
-									{Name: names.VolumeBinding},
-								},
-							},
 						},
 						PluginConfig: []v12.PluginConfig{
 							{
@@ -1292,15 +1271,6 @@ profiles:
 						SchedulerName: "foo-profile",
 						Plugins: &v12.Plugins{
 							MultiPoint: defaults.PluginsV1beta3.MultiPoint,
-							Reserve: v12.PluginSet{
-								Enabled: []v12.Plugin{
-									{Name: "foo"},
-									{Name: names.VolumeBinding},
-								},
-								Disabled: []v12.Plugin{
-									{Name: names.VolumeBinding},
-								},
-							},
 						},
 						PluginConfig: defaults.PluginConfigsV1beta3,
 					},
@@ -1308,11 +1278,6 @@ profiles:
 						SchedulerName: "bar-profile",
 						Plugins: &v12.Plugins{
 							MultiPoint: defaults.PluginsV1beta3.MultiPoint,
-							PreBind: v12.PluginSet{
-								Disabled: []v12.Plugin{
-									{Name: names.VolumeBinding},
-								},
-							},
 						},
 						PluginConfig: []v12.PluginConfig{
 							{
@@ -1413,12 +1378,6 @@ profiles:
 							Score:      defaults.PluginsV1beta2.Score,
 							Bind:       defaults.PluginsV1beta2.Bind,
 							PreBind:    defaults.PluginsV1beta2.PreBind,
-							Reserve: v12.PluginSet{
-								Enabled: []v12.Plugin{
-									{Name: "foo"},
-									{Name: names.VolumeBinding},
-								},
-							},
 						},
 						PluginConfig: defaults.PluginConfigsV1beta2,
 					},

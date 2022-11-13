@@ -1,19 +1,3 @@
-/*
-Copyright 2021 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package defaults
 
 import (
@@ -32,10 +16,7 @@ var PluginsV1beta2 = &v1.Plugins{
 		Enabled: []v1.Plugin{
 			{Name: names.FoodResourcesFit},
 			{Name: names.FoodPorts},
-			{Name: names.VolumeRestrictions},
 			{Name: names.DguestTopologySpread},
-			{Name: names.InterDguestAffinity},
-			{Name: names.VolumeBinding},
 			{Name: names.FoodAffinity},
 		},
 	},
@@ -45,17 +26,8 @@ var PluginsV1beta2 = &v1.Plugins{
 			{Name: names.FoodName},
 			{Name: names.TaintToleration},
 			{Name: names.FoodAffinity},
-			{Name: names.FoodPorts},
 			{Name: names.FoodResourcesFit},
-			{Name: names.VolumeRestrictions},
-			{Name: names.EBSLimits},
-			{Name: names.GCEPDLimits},
-			{Name: names.FoodVolumeLimits},
-			{Name: names.AzureDiskLimits},
-			{Name: names.VolumeBinding},
-			{Name: names.VolumeZone},
 			{Name: names.DguestTopologySpread},
-			{Name: names.InterDguestAffinity},
 		},
 	},
 	PostFilter: v1.PluginSet{
@@ -65,7 +37,6 @@ var PluginsV1beta2 = &v1.Plugins{
 	},
 	PreScore: v1.PluginSet{
 		Enabled: []v1.Plugin{
-			{Name: names.InterDguestAffinity},
 			{Name: names.DguestTopologySpread},
 			{Name: names.TaintToleration},
 			{Name: names.FoodAffinity},
@@ -74,8 +45,6 @@ var PluginsV1beta2 = &v1.Plugins{
 	Score: v1.PluginSet{
 		Enabled: []v1.Plugin{
 			{Name: names.FoodResourcesBalancedAllocation, Weight: 1},
-			{Name: names.ImageLocality, Weight: 1},
-			{Name: names.InterDguestAffinity, Weight: 1},
 			{Name: names.FoodResourcesFit, Weight: 1},
 			{Name: names.FoodAffinity, Weight: 1},
 			// Weight is doubled because:
@@ -85,16 +54,8 @@ var PluginsV1beta2 = &v1.Plugins{
 			{Name: names.TaintToleration, Weight: 1},
 		},
 	},
-	Reserve: v1.PluginSet{
-		Enabled: []v1.Plugin{
-			{Name: names.VolumeBinding},
-		},
-	},
-	PreBind: v1.PluginSet{
-		Enabled: []v1.Plugin{
-			{Name: names.VolumeBinding},
-		},
-	},
+	Reserve: v1.PluginSet{},
+	PreBind: v1.PluginSet{},
 	Bind: v1.PluginSet{
 		Enabled: []v1.Plugin{
 			{Name: names.DefaultBinder},
@@ -143,12 +104,6 @@ var PluginConfigsV1beta2 = []v1.PluginConfig{
 			DefaultingType: v1.SystemDefaulting,
 		},
 	},
-	{
-		Name: "VolumeBinding",
-		Args: &v1.VolumeBindingArgs{
-			BindTimeoutSeconds: 600,
-		},
-	},
 }
 
 // PluginsV1beta3 is the set of default v1beta3 plugins (before MultiPoint expansion)
@@ -157,23 +112,12 @@ var PluginsV1beta3 = &v1.Plugins{
 		Enabled: []v1.Plugin{
 			{Name: names.PrioritySort},
 			{Name: names.FoodUnschedulable},
-			{Name: names.FoodName},
 			{Name: names.TaintToleration, Weight: 3},
 			{Name: names.FoodAffinity, Weight: 2},
-			{Name: names.FoodPorts},
 			{Name: names.FoodResourcesFit, Weight: 1},
-			{Name: names.VolumeRestrictions},
-			{Name: names.EBSLimits},
-			{Name: names.GCEPDLimits},
-			{Name: names.FoodVolumeLimits},
-			{Name: names.AzureDiskLimits},
-			{Name: names.VolumeBinding},
-			{Name: names.VolumeZone},
 			{Name: names.DguestTopologySpread, Weight: 2},
-			{Name: names.InterDguestAffinity, Weight: 2},
 			{Name: names.DefaultPreemption},
 			{Name: names.FoodResourcesBalancedAllocation, Weight: 1},
-			{Name: names.ImageLocality, Weight: 1},
 			{Name: names.DefaultBinder},
 		},
 	},
@@ -191,8 +135,6 @@ var ExpandedPluginsV1beta3 = &v1.Plugins{
 			{Name: names.FoodAffinity},
 			{Name: names.FoodPorts},
 			{Name: names.FoodResourcesFit},
-			{Name: names.VolumeRestrictions},
-			{Name: names.VolumeBinding},
 			{Name: names.DguestTopologySpread},
 			{Name: names.InterDguestAffinity},
 		},
@@ -203,15 +145,7 @@ var ExpandedPluginsV1beta3 = &v1.Plugins{
 			{Name: names.FoodName},
 			{Name: names.TaintToleration},
 			{Name: names.FoodAffinity},
-			{Name: names.FoodPorts},
 			{Name: names.FoodResourcesFit},
-			{Name: names.VolumeRestrictions},
-			{Name: names.EBSLimits},
-			{Name: names.GCEPDLimits},
-			{Name: names.FoodVolumeLimits},
-			{Name: names.AzureDiskLimits},
-			{Name: names.VolumeBinding},
-			{Name: names.VolumeZone},
 			{Name: names.DguestTopologySpread},
 			{Name: names.InterDguestAffinity},
 		},
@@ -240,11 +174,6 @@ var ExpandedPluginsV1beta3 = &v1.Plugins{
 			// - This is a score coming from user preference.
 			{Name: names.FoodAffinity, Weight: 2},
 			{Name: names.FoodResourcesFit, Weight: 1},
-			// Weight is tripled because:
-			// - This is a score coming from user preference.
-			// - Usage of food tainting to group foods in the cluster is increasing becoming a use-case
-			//	 for many user workloads
-			{Name: names.VolumeBinding, Weight: 1},
 			// Weight is doubled because:
 			// - This is a score coming from user preference.
 			// - It makes its signal comparable to FoodResourcesLeastAllocated.
@@ -253,19 +182,10 @@ var ExpandedPluginsV1beta3 = &v1.Plugins{
 			// - This is a score coming from user preference.
 			{Name: names.InterDguestAffinity, Weight: 2},
 			{Name: names.FoodResourcesBalancedAllocation, Weight: 1},
-			{Name: names.ImageLocality, Weight: 1},
 		},
 	},
-	Reserve: v1.PluginSet{
-		Enabled: []v1.Plugin{
-			{Name: names.VolumeBinding},
-		},
-	},
-	PreBind: v1.PluginSet{
-		Enabled: []v1.Plugin{
-			{Name: names.VolumeBinding},
-		},
-	},
+	Reserve: v1.PluginSet{},
+	PreBind: v1.PluginSet{},
 	Bind: v1.PluginSet{
 		Enabled: []v1.Plugin{
 			{Name: names.DefaultBinder},
@@ -313,12 +233,6 @@ var PluginConfigsV1beta3 = []v1.PluginConfig{
 			DefaultingType: v1.SystemDefaulting,
 		},
 	},
-	{
-		Name: "VolumeBinding",
-		Args: &v1.VolumeBindingArgs{
-			BindTimeoutSeconds: 600,
-		},
-	},
 }
 
 // PluginsV1 is the set of default v1 plugins (before MultiPoint expansion)
@@ -332,18 +246,10 @@ var PluginsV1 = &v1.Plugins{
 			{Name: names.FoodAffinity, Weight: 2},
 			{Name: names.FoodPorts},
 			{Name: names.FoodResourcesFit, Weight: 1},
-			{Name: names.VolumeRestrictions},
-			{Name: names.EBSLimits},
-			{Name: names.GCEPDLimits},
-			{Name: names.FoodVolumeLimits},
-			{Name: names.AzureDiskLimits},
-			{Name: names.VolumeBinding},
-			{Name: names.VolumeZone},
 			{Name: names.DguestTopologySpread, Weight: 2},
 			{Name: names.InterDguestAffinity, Weight: 2},
 			{Name: names.DefaultPreemption},
 			{Name: names.FoodResourcesBalancedAllocation, Weight: 1},
-			{Name: names.ImageLocality, Weight: 1},
 			{Name: names.DefaultBinder},
 		},
 	},
@@ -361,8 +267,6 @@ var ExpandedPluginsV1 = &v1.Plugins{
 			{Name: names.FoodAffinity},
 			{Name: names.FoodPorts},
 			{Name: names.FoodResourcesFit},
-			{Name: names.VolumeRestrictions},
-			{Name: names.VolumeBinding},
 			{Name: names.DguestTopologySpread},
 			{Name: names.InterDguestAffinity},
 		},
@@ -373,15 +277,7 @@ var ExpandedPluginsV1 = &v1.Plugins{
 			{Name: names.FoodName},
 			{Name: names.TaintToleration},
 			{Name: names.FoodAffinity},
-			{Name: names.FoodPorts},
 			{Name: names.FoodResourcesFit},
-			{Name: names.VolumeRestrictions},
-			{Name: names.EBSLimits},
-			{Name: names.GCEPDLimits},
-			{Name: names.FoodVolumeLimits},
-			{Name: names.AzureDiskLimits},
-			{Name: names.VolumeBinding},
-			{Name: names.VolumeZone},
 			{Name: names.DguestTopologySpread},
 			{Name: names.InterDguestAffinity},
 		},
@@ -410,11 +306,6 @@ var ExpandedPluginsV1 = &v1.Plugins{
 			// - This is a score coming from user preference.
 			{Name: names.FoodAffinity, Weight: 2},
 			{Name: names.FoodResourcesFit, Weight: 1},
-			// Weight is tripled because:
-			// - This is a score coming from user preference.
-			// - Usage of food tainting to group foods in the cluster is increasing becoming a use-case
-			//	 for many user workloads
-			{Name: names.VolumeBinding, Weight: 1},
 			// Weight is doubled because:
 			// - This is a score coming from user preference.
 			// - It makes its signal comparable to FoodResourcesLeastAllocated.
@@ -423,19 +314,10 @@ var ExpandedPluginsV1 = &v1.Plugins{
 			// - This is a score coming from user preference.
 			{Name: names.InterDguestAffinity, Weight: 2},
 			{Name: names.FoodResourcesBalancedAllocation, Weight: 1},
-			{Name: names.ImageLocality, Weight: 1},
 		},
 	},
-	Reserve: v1.PluginSet{
-		Enabled: []v1.Plugin{
-			{Name: names.VolumeBinding},
-		},
-	},
-	PreBind: v1.PluginSet{
-		Enabled: []v1.Plugin{
-			{Name: names.VolumeBinding},
-		},
-	},
+	Reserve: v1.PluginSet{},
+	PreBind: v1.PluginSet{},
 	Bind: v1.PluginSet{
 		Enabled: []v1.Plugin{
 			{Name: names.DefaultBinder},
@@ -481,12 +363,6 @@ var PluginConfigsV1 = []v1.PluginConfig{
 		Name: "DguestTopologySpread",
 		Args: &v1.DguestTopologySpreadArgs{
 			DefaultingType: v1.SystemDefaulting,
-		},
-	},
-	{
-		Name: "VolumeBinding",
-		Args: &v1.VolumeBindingArgs{
-			BindTimeoutSeconds: 600,
 		},
 	},
 }

@@ -350,8 +350,8 @@ type FoodInfo struct {
 	// The subset of dguests with required anti-affinity.
 	DguestsWithRequiredAntiAffinity []*DguestInfo
 
-	// Ports allocated on the food.
-	UsedPorts HostPortInfo
+	//// Ports allocated on the food.
+	//UsedPorts HostPortInfo
 
 	// Total requested resources of all dguests on this food. This includes assumed
 	// dguests, which scheduler has sent for binding, but may not be scheduled yet.
@@ -365,14 +365,14 @@ type FoodInfo struct {
 	// as int64, to avoid conversions and accessing map.
 	Allocatable *Resource
 
-	// ImageStates holds the entry of an image if and only if this image is on the food. The entry can be used for
-	// checking an image's existence and advanced usage (e.g., image locality scheduling policy) based on the image
-	// state information.
-	ImageStates map[string]*ImageStateSummary
-
-	// PVCRefCounts contains a mapping of PVC names to the number of dguests on the food using it.
-	// Keys are in the format "namespace/name".
-	PVCRefCounts map[string]int
+	//// ImageStates holds the entry of an image if and only if this image is on the food. The entry can be used for
+	//// checking an image's existence and advanced usage (e.g., image locality scheduling policy) based on the image
+	//// state information.
+	//ImageStates map[string]*ImageStateSummary
+	//
+	//// PVCRefCounts contains a mapping of PVC names to the number of dguests on the food using it.
+	//// Keys are in the format "namespace/name".
+	//PVCRefCounts map[string]int
 
 	// Whenever FoodInfo changes, generation is bumped.
 	// This is used to avoid cloning it if the object didn't change.
@@ -492,9 +492,9 @@ func NewFoodInfo(dguests ...*v1alpha1.Dguest) *FoodInfo {
 		NonZeroRequested: &Resource{},
 		Allocatable:      &Resource{},
 		Generation:       nextGeneration(),
-		UsedPorts:        make(HostPortInfo),
-		ImageStates:      make(map[string]*ImageStateSummary),
-		PVCRefCounts:     make(map[string]int),
+		//UsedPorts:        make(HostPortInfo),
+		//ImageStates:      make(map[string]*ImageStateSummary),
+		//PVCRefCounts:     make(map[string]int),
 	}
 	for _, dguest := range dguests {
 		ni.AddDguest(dguest)
@@ -517,32 +517,16 @@ func (n *FoodInfo) Clone() *FoodInfo {
 		Requested:        n.Requested.Clone(),
 		NonZeroRequested: n.NonZeroRequested.Clone(),
 		Allocatable:      n.Allocatable.Clone(),
-		UsedPorts:        make(HostPortInfo),
-		ImageStates:      n.ImageStates,
-		PVCRefCounts:     make(map[string]int),
 		Generation:       n.Generation,
 	}
 	if len(n.Dguests) > 0 {
 		clone.Dguests = append([]*DguestInfo(nil), n.Dguests...)
-	}
-	if len(n.UsedPorts) > 0 {
-		// HostPortInfo is a map-in-map struct
-		// make sure it's deep copied
-		for ip, portMap := range n.UsedPorts {
-			clone.UsedPorts[ip] = make(map[ProtocolPort]struct{})
-			for protocolPort, v := range portMap {
-				clone.UsedPorts[ip][protocolPort] = v
-			}
-		}
 	}
 	if len(n.DguestsWithAffinity) > 0 {
 		clone.DguestsWithAffinity = append([]*DguestInfo(nil), n.DguestsWithAffinity...)
 	}
 	if len(n.DguestsWithRequiredAntiAffinity) > 0 {
 		clone.DguestsWithRequiredAntiAffinity = append([]*DguestInfo(nil), n.DguestsWithRequiredAntiAffinity...)
-	}
-	for key, value := range n.PVCRefCounts {
-		clone.PVCRefCounts[key] = value
 	}
 	return clone
 }
@@ -553,8 +537,8 @@ func (n *FoodInfo) String() string {
 	for i, p := range n.Dguests {
 		dguestKeys[i] = p.Dguest.Name
 	}
-	return fmt.Sprintf("&FoodInfo{Dguests:%v, RequestedResource:%#v, NonZeroRequest: %#v, UsedPort: %#v, AllocatableResource:%#v}",
-		dguestKeys, n.Requested, n.NonZeroRequested, n.UsedPorts, n.Allocatable)
+	return fmt.Sprintf("&FoodInfo{Dguests:%v, RequestedResource:%#v, NonZeroRequest: %#v, AllocatableResource:%#v}",
+		dguestKeys, n.Requested, n.NonZeroRequested, n.Allocatable)
 }
 
 // AddDguestInfo adds dguest information to this FoodInfo.

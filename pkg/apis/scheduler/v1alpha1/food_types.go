@@ -60,6 +60,7 @@ type FoodCondition struct {
 type FoodInfo struct {
 	Version     string             `json:"version,omitempty"`
 	ReleaseTime metav1.Time        `json:"releaseTime,omitempty"`
+	CoreRunNode string             `json:"coreRunNode,omitempty"`
 	Items       []IngredientStatus `json:"items,omitempty"`
 }
 
@@ -79,7 +80,6 @@ const (
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:subresource:status
 
 // Food is a specification for a Food resource
 type Food struct {
