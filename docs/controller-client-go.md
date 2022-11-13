@@ -1,64 +1,31 @@
-# client-go under the hood
-
-The [client-go](https://github.com/kubernetes/client-go/) library contains various mechanisms that you can use when
-developing your custom controllers. These mechanisms are defined in the
-[tools/cache folder](https://github.com/kubernetes/client-go/tree/master/tools/cache) of the library.
-
-Here is a pictorial representation showing how the various components in
-the client-go library work and their interaction points with the custom
-controller code that you will write.
+# Dguest Scheduler
 
 <p align="center">
-  <img src="images/client-go-controller-interaction.jpeg" height="600" width="700"/>
+  <img src="images/scheduler.jpeg">
 </p>
 
-## client-go components
+## Explanation of Ranking
 
-* Reflector: A reflector, which is defined in [type *Reflector* inside package *cache*](https://github.com/kubernetes/client-go/blob/master/tools/cache/reflector.go),
-watches the Kubernetes API for the specified resource type (kind).
-The function in which this is done is *ListAndWatch*.
-The watch could be for an in-built resource or it could be for a custom resource.
-When the reflector receives notification about existence of new
-resource instance through the watch API, it gets the newly created object
-using the corresponding listing API and puts it in the Delta Fifo queue
-inside the *watchHandler* function.
+* Dguest：Represents the smallest scheduling unit, such as a tenant.
 
+* Food: Objects that represent the use of a Dguest, such as a set of related Pods.
 
-* Informer: An informer defined in the [base controller inside package *cache*](https://github.com/kubernetes/client-go/blob/master/tools/cache/controller.go) pops objects from the Delta Fifo queue.
-The function in which this is done is *processLoop*. The job of this base controller
-is to save the object for later retrieval, and to invoke our controller passing it the object.
+## Extension point Description
 
-* Indexer: An indexer provides indexing functionality over objects.
-It is defined in [type *Indexer* inside package *cache*](https://github.com/kubernetes/client-go/blob/master/tools/cache/index.go). A typical indexing use-case is to create an index based on object labels. Indexer can
-maintain indexes based on several indexing functions.
-Indexer uses a thread-safe data store to store objects and their keys.
-There is a default function named *MetaNamespaceKeyFunc* defined in [type *Store* inside package *cache*](https://github.com/kubernetes/client-go/blob/master/tools/cache/store.go)
-that generates an object’s key as `<namespace>/<name>` combination for that object.
+### Scheduler Cycle
 
+* QueueSort: Necessary. The extension is used to sort the queue of Pods to be scheduled to determine which Pod to schedule first.
+* Pre-filter: Extensions are used to preprocess information about a Pod, or to check some preconditions that a cluster or Pod must meet.
+* Filter: The extension is used to exclude nodes that cannot run the Pod, and for each node, the scheduler executes the filter extension in order; If any filter marks the node as not optional, the remaining filter extensions will not be executed. The scheduler can perform filter extensions on multiple nodes at the same time.
+* Post-filter: A notification type extension point that is invoked with a list of nodes that have been filtered to optional nodes after the filter phase, which can be used in the extension to update internal status or generate logging or metrics information.
+* Score: The extension is used to score all the optional nodes, and the scheduler calls the "t" extension for each node, with the score being an integer within the range. In the normalize scoring phase, the scheduler will combine the scores of each scoring extension on a specific node with the weight of that extension as the final score.
+* Normalize scoring: The scoring result of the scoring extension in the same plugin will be obtained as the scoring result of the scoring extension in the same plugin when the extension is called. The scoring result of the scoring extension in the same plugin will be modified before the final ordering of nodes by the scheduler. A normalize scoring extension in all plug-ins is invoked once.
+* Reserve: Is a notification extension point that stateful plug-ins can use to get the resources reserved for Pod on the node. This event occurs before the scheduler binds the Pod to the node. The purpose of this event is to prevent the scheduler from scheduling a new Pod to the node while waiting for the Pod to bind to the node. The actual resources used exceed the available resources. Because binding a Pod to a node happens asynchronously. This is the last step in the scheduling process. After the Pod enters the reserved state, the Unreserve extension is either triggered when the binding fails, or the Post-bind extension ends the binding process when the binding succeeds.
 
-## Custom Controller components
+### Binding Cycle
 
-* Informer reference: This is the reference to the Informer instance that knows
-how to work with your custom resource objects. Your custom controller code needs
-to create the appropriate Informer.
-
-* Indexer reference: This is the reference to the Indexer instance that knows
-how to work with your custom resource objects. Your custom controller code needs
-to create this. You will be using this reference for retrieving objects for
-later processing.
-
-The base controller in client-go provides the *NewIndexerInformer* function to create Informer and Indexer.
-In your code you can either [directly invoke this function](https://github.com/kubernetes/client-go/blob/master/examples/workqueue/main.go#L174) or [use factory methods for creating an informer.](https://github.com/kubernetes/sample-controller/blob/master/main.go#L61)
-
-* Resource Event Handlers: These are the callback functions which will be called by
-the Informer when it wants to deliver an object to your controller. The typical
-pattern to write these functions is to obtain the dispatched object’s key
-and enqueue that key in a work queue for further processing.
-
-* Work queue: This is the queue that you create in your controller code to decouple
-delivery of an object from its processing. Resource event handler functions are written
-to extract the delivered object’s key and add that to the work queue.
-
-* Process Item: This is the function that you create in your code which processes items
-from the work queue. There can be one or more other functions that do the actual processing.
-These functions will typically use the [Indexer reference](https://github.com/kubernetes/client-go/blob/master/examples/workqueue/main.go#L73), or a Listing wrapper to retrieve the object corresponding to the key.
+* Permit 
+* Pre-bind
+* Bind
+* Post-bind
+* Unreserve
