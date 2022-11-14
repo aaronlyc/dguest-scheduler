@@ -17,4 +17,6 @@ const (
 	ServiceAffinity                 = "ServiceAffinity"
 	TaintToleration                 = "TaintToleration"
 	NodeAvailability                = "NodeAvailability"
+	AC                              = "AC"
+	AF                              = "AF"
 )

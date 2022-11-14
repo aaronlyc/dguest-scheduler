@@ -367,10 +367,15 @@ func UpdateDguestCondition(status *v1alpha1.DguestStatus, condition *v1alpha1.Dg
 const (
 	labelCuisine = "cuisine"
 	labelVersion = "version"
+	labelArea    = "area"
 )
 
 func CuisineVersionKey(cuisine, version string) string {
 	return cuisine + "/" + version
+}
+
+func FoodArea(food *v1alpha1.Food) string {
+	return food.Labels[labelArea]
 }
 
 func FoodCuisineVersionKey(food *v1alpha1.Food) string {

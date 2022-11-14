@@ -3,7 +3,8 @@ kind: Food
 metadata:
   labels:
     version: v1
-    cuisine: ac
+    cuisine: example
+    area: ac
   name: example1-food1
   namespace: food
 spec:
@@ -23,10 +24,10 @@ status:
     version: v1
     coreRunNode: node1
     items:
-      - namespace: example1-ms1
-        name: ms1-p1
+      - namespace: ac-ms1
+        name: ac-ms1-p1
         phase: Good
-      - namespace: example1-ms2
-        name: ms2-p1
+      - namespace: ac-ms2
+        name: ac-ms2-p1
         phase: Good
 

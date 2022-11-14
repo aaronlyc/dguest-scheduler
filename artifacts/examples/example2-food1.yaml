@@ -4,15 +4,15 @@ metadata:
   labels:
     version: v1
     cuisine: example
-    area: ac
-  name: example1-food2
+    area: af
+  name: example2-food1
   namespace: food
 spec:
   unschedulable: false
 status:
   allocatable:
-    cpu: "3"
-    bandwidth: "50"
+    cpu: "4"
+    bandwidth: "40"
     memory: 4025084Ki
     gate: "110"
   capacity:
@@ -24,10 +24,10 @@ status:
     version: v1
     coreRunNode: node1
     items:
-      - namespace: ac-ms1
-        name: ac-ms1-p2
+      - namespace: af-ms1
+        name: af-ms1-p1
         phase: Good
-      - namespace: ac-ms2
-        name: ac-ms2-p2
+      - namespace: af-ms2
+        name: af-ms2-p1
         phase: Good
 

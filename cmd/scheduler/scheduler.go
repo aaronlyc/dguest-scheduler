@@ -1,6 +1,8 @@
 package main
 
 import (
+	"dguest-scheduler/pkg/scheduler/framework/plugins/ac"
+	"dguest-scheduler/pkg/scheduler/framework/plugins/af"
 	"os"
 
 	"dguest-scheduler/cmd/scheduler/app"
@@ -12,7 +14,7 @@ import (
 
 // 配置文件启动参数为：--config=./cmd/scheduler/setup.yaml
 func main() {
-	command := app.NewSchedulerCommand()
+	command := app.NewSchedulerCommand(app.WithPlugin(ac.Name, ac.New), app.WithPlugin(af.Name, af.New))
 	code := cli.Run(command)
 	os.Exit(code)
 }

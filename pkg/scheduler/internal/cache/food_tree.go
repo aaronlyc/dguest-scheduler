@@ -46,7 +46,7 @@ func (nt *foodTree) addFood(f *v1alpha1.Food) {
 		})
 	} else {
 		nt.zones = append(nt.zones, zone)
-		nt.tree[zone] = []*v1alpha1.FoodInfoBase{&v1alpha1.FoodInfoBase{
+		nt.tree[zone] = []*v1alpha1.FoodInfoBase{{
 			Namespace:      f.Namespace,
 			Name:           f.Name,
 			CuisineVersion: zone,
@@ -113,26 +113,6 @@ func (nt *foodTree) list(cuisineVersion string) []*v1alpha1.FoodInfoBase {
 		return nil
 	}
 	return nt.tree[cuisineVersion]
-	// foodsList := make([]*v1alpha1.FoodInfoBase, 0, nt.numFoods)
-	// numExhaustedZones := 0
-	// foodIndex := 0
-	// for len(foodsList) < nt.numFoods {
-	// 	if numExhaustedZones >= len(nt.zones) { // all zones are exhausted.
-	// 		return foodsList, errors.New("all zones exhausted before reaching count of foods expected")
-	// 	}
-	// 	for zoneIndex := 0; zoneIndex < len(nt.zones); zoneIndex++ {
-	// 		na := nt.tree[nt.zones[zoneIndex]]
-	// 		if foodIndex >= len(na) { // If the zone is exhausted, continue
-	// 			if foodIndex == len(na) { // If it is the first time the zone is exhausted
-	// 				numExhaustedZones++
-	// 			}
-	// 			continue
-	// 		}
-	// 		foodsList = append(foodsList, na[foodIndex])
-	// 	}
-	// 	foodIndex++
-	// }
-	// return foodsList, nil
 }
 
 func (nt *foodTree) foodCount(cuisineVersion string) int {
