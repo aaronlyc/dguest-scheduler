@@ -10,6 +10,7 @@ import (
 	_ "k8s.io/component-base/metrics/prometheus/version" // for version metric registration
 )
 
+// 配置文件启动参数为：--config=./cmd/scheduler/setup.yaml
 func main() {
 	command := app.NewSchedulerCommand()
 	code := cli.Run(command)
