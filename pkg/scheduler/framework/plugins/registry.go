@@ -15,7 +15,5 @@ func NewInTreeRegistry() runtime.Registry {
 		nodeavailability.Name: nodeavailability.New,
 		queuesort.Name:        queuesort.New,
 		defaultbinder.Name:    defaultbinder.New,
-		//ac.Name:               ac.New,
-		//af.Name:               af.New,
 	}
 }
