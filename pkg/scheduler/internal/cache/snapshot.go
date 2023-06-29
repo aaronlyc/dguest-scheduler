@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
 	"fmt"
 
 	"dguest-scheduler/pkg/scheduler/framework"
@@ -11,7 +10,7 @@ import (
 // snapshot at the beginning of each scheduling cycle and uses it for its operations in that cycle.
 type Snapshot struct {
 	// foodInfoMap a map of food name to a snapshot of its FoodInfo.
-	foodInfoMap map[string][]*framework.FoodInfo
+	foodInfoMap map[string]*framework.FoodInfo
 	// foodInfoList is the list of foods as ordered in the cache's foodTree.
 	// foodInfoList []*framework.FoodInfo
 	// haveDguestsWithAffinityFoodInfoList is the list of foods with at least one dguest declaring affinity terms.
@@ -30,7 +29,7 @@ var _ framework.SharedLister = &Snapshot{}
 // NewEmptySnapshot initializes a Snapshot struct and returns it.
 func NewEmptySnapshot() *Snapshot {
 	return &Snapshot{
-		foodInfoMap: make(map[string][]*framework.FoodInfo),
+		foodInfoMap: make(map[string]*framework.FoodInfo),
 		// usedPVCSet:  sets.NewString(),
 	}
 }
@@ -80,7 +79,7 @@ func NewEmptySnapshot() *Snapshot {
 // 	imageExistenceMap := createImageExistenceMap(foods)
 
 // 	for _, food := range foods {
-// 		key := apidguest.FoodCuisineVersionKey(food)
+// 		key := apidguest.FoodcuisineKey(food)
 // 		if _, ok := foodNameToInfo[key]; !ok {
 // 			foodNameToInfo[key] = framework.NewFoodInfo()
 // 		}
@@ -102,13 +101,13 @@ func (s *Snapshot) FoodInfos() framework.FoodInfoLister {
 // }
 
 // NumFoods returns the number of foods in the snapshot.
-func (s *Snapshot) NumFoods(cuisineVersion string) int {
-	return len(s.foodInfoMap[cuisineVersion])
+func (s *Snapshot) NumFoods() int {
+	return len(s.foodInfoMap)
 }
 
 // List returns the list of foods in the snapshot.
-func (s *Snapshot) List(cuisineVersion string) []*framework.FoodInfo {
-	return s.foodInfoMap[cuisineVersion]
+func (s *Snapshot) List() map[string]*framework.FoodInfo {
+	return s.foodInfoMap
 }
 
 // HaveDguestsWithAffinityList returns the list of foods with at least one dguest with inter-dguest affinity
@@ -123,13 +122,9 @@ func (s *Snapshot) HaveDguestsWithRequiredAntiAffinityList() ([]*framework.FoodI
 }
 
 // Get returns the FoodInfo of the given food name.
-func (s *Snapshot) Get(selectedFood *v1alpha1.FoodInfoBase) (*framework.FoodInfo, error) {
-	if foods, ok := s.foodInfoMap[selectedFood.CuisineVersion]; ok {
-		for i := range foods {
-			if foods[i].Food().Name == selectedFood.Name {
-				return foods[i], nil
-			}
-		}
+func (s *Snapshot) Get(foodName string) (*framework.FoodInfo, error) {
+	if theFood, ok := s.foodInfoMap[foodName]; ok {
+		return theFood, nil
 	}
-	return nil, fmt.Errorf("foodinfo not found for food key %+v", selectedFood)
+	return nil, fmt.Errorf("foodinfo not found for food key %+v", foodName)
 }

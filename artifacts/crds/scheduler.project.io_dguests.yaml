@@ -39,6 +39,882 @@ spec:
                 description: The timeout period before becoming active
                 format: int64
                 type: integer
+              foodNamespacedName:
+                description: namespace/name value
+                type: string
+              menu:
+                description: The Bill the dguest want to scheduler.
+                properties:
+                  affinity:
+                    description: If specified, the dguest's scheduling constraints
+                    properties:
+                      DguestAffinity:
+                        description: Describes Dguest affinity scheduling rules (e.g.
+                          co-locate this Dguest in the same food, zone, etc. as some
+                          other Dguest(s)).
+                        properties:
+                          preferredDuringSchedulingIgnoredDuringExecution:
+                            description: The scheduler will prefer to schedule Dguests
+                              to foods that satisfy the affinity expressions specified
+                              by this field, but it may choose a food that violates
+                              one or more of the expressions. The food that is most
+                              preferred is the one with the greatest sum of weights,
+                              i.e. for each food that meets all of the scheduling
+                              requirements (resource request, requiredDuringScheduling
+                              affinity expressions, etc.), compute a sum by iterating
+                              through the elements of this field and adding "weight"
+                              to the sum if the food has Dguests which matches the
+                              corresponding DguestAffinityTerm; the food(s) with the
+                              highest sum are the most preferred.
+                            items:
+                              description: The weights of all of the matched WeightedDguestAffinityTerm
+                                fields are added per-food to find the most preferred
+                                food(s)
+                              properties:
+                                DguestAffinityTerm:
+                                  description: Required. A Dguest affinity term, associated
+                                    with the corresponding weight.
+                                  properties:
+                                    labelSelector:
+                                      description: A label query over a set of resources,
+                                        in this case Dguests.
+                                      properties:
+                                        matchExpressions:
+                                          description: matchExpressions is a list
+                                            of label selector requirements. The requirements
+                                            are ANDed.
+                                          items:
+                                            description: A label selector requirement
+                                              is a selector that contains values,
+                                              a key, and an operator that relates
+                                              the key and values.
+                                            properties:
+                                              key:
+                                                description: key is the label key
+                                                  that the selector applies to.
+                                                type: string
+                                              operator:
+                                                description: operator represents a
+                                                  key's relationship to a set of values.
+                                                  Valid operators are In, NotIn, Exists
+                                                  and DoesNotExist.
+                                                type: string
+                                              values:
+                                                description: values is an array of
+                                                  string values. If the operator is
+                                                  In or NotIn, the values array must
+                                                  be non-empty. If the operator is
+                                                  Exists or DoesNotExist, the values
+                                                  array must be empty. This array
+                                                  is replaced during a strategic merge
+                                                  patch.
+                                                items:
+                                                  type: string
+                                                type: array
+                                            required:
+                                            - key
+                                            - operator
+                                            type: object
+                                          type: array
+                                        matchLabels:
+                                          additionalProperties:
+                                            type: string
+                                          description: matchLabels is a map of {key,value}
+                                            pairs. A single {key,value} in the matchLabels
+                                            map is equivalent to an element of matchExpressions,
+                                            whose key field is "key", the operator
+                                            is "In", and the values array contains
+                                            only "value". The requirements are ANDed.
+                                          type: object
+                                      type: object
+                                    namespaceSelector:
+                                      description: A label query over the set of namespaces
+                                        that the term applies to. The term is applied
+                                        to the union of the namespaces selected by
+                                        this field and the ones listed in the namespaces
+                                        field. null selector and null or empty namespaces
+                                        list means "this Dguest's namespace". An empty
+                                        selector ({}) matches all namespaces.
+                                      properties:
+                                        matchExpressions:
+                                          description: matchExpressions is a list
+                                            of label selector requirements. The requirements
+                                            are ANDed.
+                                          items:
+                                            description: A label selector requirement
+                                              is a selector that contains values,
+                                              a key, and an operator that relates
+                                              the key and values.
+                                            properties:
+                                              key:
+                                                description: key is the label key
+                                                  that the selector applies to.
+                                                type: string
+                                              operator:
+                                                description: operator represents a
+                                                  key's relationship to a set of values.
+                                                  Valid operators are In, NotIn, Exists
+                                                  and DoesNotExist.
+                                                type: string
+                                              values:
+                                                description: values is an array of
+                                                  string values. If the operator is
+                                                  In or NotIn, the values array must
+                                                  be non-empty. If the operator is
+                                                  Exists or DoesNotExist, the values
+                                                  array must be empty. This array
+                                                  is replaced during a strategic merge
+                                                  patch.
+                                                items:
+                                                  type: string
+                                                type: array
+                                            required:
+                                            - key
+                                            - operator
+                                            type: object
+                                          type: array
+                                        matchLabels:
+                                          additionalProperties:
+                                            type: string
+                                          description: matchLabels is a map of {key,value}
+                                            pairs. A single {key,value} in the matchLabels
+                                            map is equivalent to an element of matchExpressions,
+                                            whose key field is "key", the operator
+                                            is "In", and the values array contains
+                                            only "value". The requirements are ANDed.
+                                          type: object
+                                      type: object
+                                    namespaces:
+                                      description: namespaces specifies a static list
+                                        of namespace names that the term applies to.
+                                        The term is applied to the union of the namespaces
+                                        listed in this field and the ones selected
+                                        by namespaceSelector. null or empty namespaces
+                                        list and null namespaceSelector means "this
+                                        Dguest's namespace".
+                                      items:
+                                        type: string
+                                      type: array
+                                    topologyKey:
+                                      description: This Dguest should be co-located
+                                        (affinity) or not co-located (anti-affinity)
+                                        with the Dguests matching the labelSelector
+                                        in the specified namespaces, where co-located
+                                        is defined as running on a food whose value
+                                        of the label with key topologyKey matches
+                                        that of any food on which any of the selected
+                                        Dguests is running. Empty topologyKey is not
+                                        allowed.
+                                      type: string
+                                  required:
+                                  - topologyKey
+                                  type: object
+                                weight:
+                                  description: weight associated with matching the
+                                    corresponding DguestAffinityTerm, in the range
+                                    1-100.
+                                  format: int32
+                                  type: integer
+                              required:
+                              - DguestAffinityTerm
+                              - weight
+                              type: object
+                            type: array
+                          requiredDuringSchedulingIgnoredDuringExecution:
+                            description: If the affinity requirements specified by
+                              this field are not met at scheduling time, the Dguest
+                              will not be scheduled onto the food. If the affinity
+                              requirements specified by this field cease to be met
+                              at some point during Dguest execution (e.g. due to a
+                              Dguest label update), the system may or may not try
+                              to eventually evict the Dguest from its food. When there
+                              are multiple elements, the lists of foods corresponding
+                              to each DguestAffinityTerm are intersected, i.e. all
+                              terms must be satisfied.
+                            items:
+                              description: Defines a set of Dguests (namely those
+                                matching the labelSelector relative to the given namespace(s))
+                                that this Dguest should be co-located (affinity) or
+                                not co-located (anti-affinity) with, where co-located
+                                is defined as running on a food whose value of the
+                                label with key <topologyKey> matches that of any food
+                                on which a Dguest of the set of Dguests is running
+                              properties:
+                                labelSelector:
+                                  description: A label query over a set of resources,
+                                    in this case Dguests.
+                                  properties:
+                                    matchExpressions:
+                                      description: matchExpressions is a list of label
+                                        selector requirements. The requirements are
+                                        ANDed.
+                                      items:
+                                        description: A label selector requirement
+                                          is a selector that contains values, a key,
+                                          and an operator that relates the key and
+                                          values.
+                                        properties:
+                                          key:
+                                            description: key is the label key that
+                                              the selector applies to.
+                                            type: string
+                                          operator:
+                                            description: operator represents a key's
+                                              relationship to a set of values. Valid
+                                              operators are In, NotIn, Exists and
+                                              DoesNotExist.
+                                            type: string
+                                          values:
+                                            description: values is an array of string
+                                              values. If the operator is In or NotIn,
+                                              the values array must be non-empty.
+                                              If the operator is Exists or DoesNotExist,
+                                              the values array must be empty. This
+                                              array is replaced during a strategic
+                                              merge patch.
+                                            items:
+                                              type: string
+                                            type: array
+                                        required:
+                                        - key
+                                        - operator
+                                        type: object
+                                      type: array
+                                    matchLabels:
+                                      additionalProperties:
+                                        type: string
+                                      description: matchLabels is a map of {key,value}
+                                        pairs. A single {key,value} in the matchLabels
+                                        map is equivalent to an element of matchExpressions,
+                                        whose key field is "key", the operator is
+                                        "In", and the values array contains only "value".
+                                        The requirements are ANDed.
+                                      type: object
+                                  type: object
+                                namespaceSelector:
+                                  description: A label query over the set of namespaces
+                                    that the term applies to. The term is applied
+                                    to the union of the namespaces selected by this
+                                    field and the ones listed in the namespaces field.
+                                    null selector and null or empty namespaces list
+                                    means "this Dguest's namespace". An empty selector
+                                    ({}) matches all namespaces.
+                                  properties:
+                                    matchExpressions:
+                                      description: matchExpressions is a list of label
+                                        selector requirements. The requirements are
+                                        ANDed.
+                                      items:
+                                        description: A label selector requirement
+                                          is a selector that contains values, a key,
+                                          and an operator that relates the key and
+                                          values.
+                                        properties:
+                                          key:
+                                            description: key is the label key that
+                                              the selector applies to.
+                                            type: string
+                                          operator:
+                                            description: operator represents a key's
+                                              relationship to a set of values. Valid
+                                              operators are In, NotIn, Exists and
+                                              DoesNotExist.
+                                            type: string
+                                          values:
+                                            description: values is an array of string
+                                              values. If the operator is In or NotIn,
+                                              the values array must be non-empty.
+                                              If the operator is Exists or DoesNotExist,
+                                              the values array must be empty. This
+                                              array is replaced during a strategic
+                                              merge patch.
+                                            items:
+                                              type: string
+                                            type: array
+                                        required:
+                                        - key
+                                        - operator
+                                        type: object
+                                      type: array
+                                    matchLabels:
+                                      additionalProperties:
+                                        type: string
+                                      description: matchLabels is a map of {key,value}
+                                        pairs. A single {key,value} in the matchLabels
+                                        map is equivalent to an element of matchExpressions,
+                                        whose key field is "key", the operator is
+                                        "In", and the values array contains only "value".
+                                        The requirements are ANDed.
+                                      type: object
+                                  type: object
+                                namespaces:
+                                  description: namespaces specifies a static list
+                                    of namespace names that the term applies to. The
+                                    term is applied to the union of the namespaces
+                                    listed in this field and the ones selected by
+                                    namespaceSelector. null or empty namespaces list
+                                    and null namespaceSelector means "this Dguest's
+                                    namespace".
+                                  items:
+                                    type: string
+                                  type: array
+                                topologyKey:
+                                  description: This Dguest should be co-located (affinity)
+                                    or not co-located (anti-affinity) with the Dguests
+                                    matching the labelSelector in the specified namespaces,
+                                    where co-located is defined as running on a food
+                                    whose value of the label with key topologyKey
+                                    matches that of any food on which any of the selected
+                                    Dguests is running. Empty topologyKey is not allowed.
+                                  type: string
+                              required:
+                              - topologyKey
+                              type: object
+                            type: array
+                        type: object
+                      DguestAntiAffinity:
+                        description: Describes Dguest anti-affinity scheduling rules
+                          (e.g. avoid putting this Dguest in the same food, zone,
+                          etc. as some other Dguest(s)).
+                        properties:
+                          preferredDuringSchedulingIgnoredDuringExecution:
+                            description: The scheduler will prefer to schedule Dguests
+                              to foods that satisfy the anti-affinity expressions
+                              specified by this field, but it may choose a food that
+                              violates one or more of the expressions. The food that
+                              is most preferred is the one with the greatest sum of
+                              weights, i.e. for each food that meets all of the scheduling
+                              requirements (resource request, requiredDuringScheduling
+                              anti-affinity expressions, etc.), compute a sum by iterating
+                              through the elements of this field and adding "weight"
+                              to the sum if the food has Dguests which matches the
+                              corresponding DguestAffinityTerm; the food(s) with the
+                              highest sum are the most preferred.
+                            items:
+                              description: The weights of all of the matched WeightedDguestAffinityTerm
+                                fields are added per-food to find the most preferred
+                                food(s)
+                              properties:
+                                DguestAffinityTerm:
+                                  description: Required. A Dguest affinity term, associated
+                                    with the corresponding weight.
+                                  properties:
+                                    labelSelector:
+                                      description: A label query over a set of resources,
+                                        in this case Dguests.
+                                      properties:
+                                        matchExpressions:
+                                          description: matchExpressions is a list
+                                            of label selector requirements. The requirements
+                                            are ANDed.
+                                          items:
+                                            description: A label selector requirement
+                                              is a selector that contains values,
+                                              a key, and an operator that relates
+                                              the key and values.
+                                            properties:
+                                              key:
+                                                description: key is the label key
+                                                  that the selector applies to.
+                                                type: string
+                                              operator:
+                                                description: operator represents a
+                                                  key's relationship to a set of values.
+                                                  Valid operators are In, NotIn, Exists
+                                                  and DoesNotExist.
+                                                type: string
+                                              values:
+                                                description: values is an array of
+                                                  string values. If the operator is
+                                                  In or NotIn, the values array must
+                                                  be non-empty. If the operator is
+                                                  Exists or DoesNotExist, the values
+                                                  array must be empty. This array
+                                                  is replaced during a strategic merge
+                                                  patch.
+                                                items:
+                                                  type: string
+                                                type: array
+                                            required:
+                                            - key
+                                            - operator
+                                            type: object
+                                          type: array
+                                        matchLabels:
+                                          additionalProperties:
+                                            type: string
+                                          description: matchLabels is a map of {key,value}
+                                            pairs. A single {key,value} in the matchLabels
+                                            map is equivalent to an element of matchExpressions,
+                                            whose key field is "key", the operator
+                                            is "In", and the values array contains
+                                            only "value". The requirements are ANDed.
+                                          type: object
+                                      type: object
+                                    namespaceSelector:
+                                      description: A label query over the set of namespaces
+                                        that the term applies to. The term is applied
+                                        to the union of the namespaces selected by
+                                        this field and the ones listed in the namespaces
+                                        field. null selector and null or empty namespaces
+                                        list means "this Dguest's namespace". An empty
+                                        selector ({}) matches all namespaces.
+                                      properties:
+                                        matchExpressions:
+                                          description: matchExpressions is a list
+                                            of label selector requirements. The requirements
+                                            are ANDed.
+                                          items:
+                                            description: A label selector requirement
+                                              is a selector that contains values,
+                                              a key, and an operator that relates
+                                              the key and values.
+                                            properties:
+                                              key:
+                                                description: key is the label key
+                                                  that the selector applies to.
+                                                type: string
+                                              operator:
+                                                description: operator represents a
+                                                  key's relationship to a set of values.
+                                                  Valid operators are In, NotIn, Exists
+                                                  and DoesNotExist.
+                                                type: string
+                                              values:
+                                                description: values is an array of
+                                                  string values. If the operator is
+                                                  In or NotIn, the values array must
+                                                  be non-empty. If the operator is
+                                                  Exists or DoesNotExist, the values
+                                                  array must be empty. This array
+                                                  is replaced during a strategic merge
+                                                  patch.
+                                                items:
+                                                  type: string
+                                                type: array
+                                            required:
+                                            - key
+                                            - operator
+                                            type: object
+                                          type: array
+                                        matchLabels:
+                                          additionalProperties:
+                                            type: string
+                                          description: matchLabels is a map of {key,value}
+                                            pairs. A single {key,value} in the matchLabels
+                                            map is equivalent to an element of matchExpressions,
+                                            whose key field is "key", the operator
+                                            is "In", and the values array contains
+                                            only "value". The requirements are ANDed.
+                                          type: object
+                                      type: object
+                                    namespaces:
+                                      description: namespaces specifies a static list
+                                        of namespace names that the term applies to.
+                                        The term is applied to the union of the namespaces
+                                        listed in this field and the ones selected
+                                        by namespaceSelector. null or empty namespaces
+                                        list and null namespaceSelector means "this
+                                        Dguest's namespace".
+                                      items:
+                                        type: string
+                                      type: array
+                                    topologyKey:
+                                      description: This Dguest should be co-located
+                                        (affinity) or not co-located (anti-affinity)
+                                        with the Dguests matching the labelSelector
+                                        in the specified namespaces, where co-located
+                                        is defined as running on a food whose value
+                                        of the label with key topologyKey matches
+                                        that of any food on which any of the selected
+                                        Dguests is running. Empty topologyKey is not
+                                        allowed.
+                                      type: string
+                                  required:
+                                  - topologyKey
+                                  type: object
+                                weight:
+                                  description: weight associated with matching the
+                                    corresponding DguestAffinityTerm, in the range
+                                    1-100.
+                                  format: int32
+                                  type: integer
+                              required:
+                              - DguestAffinityTerm
+                              - weight
+                              type: object
+                            type: array
+                          requiredDuringSchedulingIgnoredDuringExecution:
+                            description: If the anti-affinity requirements specified
+                              by this field are not met at scheduling time, the Dguest
+                              will not be scheduled onto the food. If the anti-affinity
+                              requirements specified by this field cease to be met
+                              at some point during Dguest execution (e.g. due to a
+                              Dguest label update), the system may or may not try
+                              to eventually evict the Dguest from its food. When there
+                              are multiple elements, the lists of foods corresponding
+                              to each DguestAffinityTerm are intersected, i.e. all
+                              terms must be satisfied.
+                            items:
+                              description: Defines a set of Dguests (namely those
+                                matching the labelSelector relative to the given namespace(s))
+                                that this Dguest should be co-located (affinity) or
+                                not co-located (anti-affinity) with, where co-located
+                                is defined as running on a food whose value of the
+                                label with key <topologyKey> matches that of any food
+                                on which a Dguest of the set of Dguests is running
+                              properties:
+                                labelSelector:
+                                  description: A label query over a set of resources,
+                                    in this case Dguests.
+                                  properties:
+                                    matchExpressions:
+                                      description: matchExpressions is a list of label
+                                        selector requirements. The requirements are
+                                        ANDed.
+                                      items:
+                                        description: A label selector requirement
+                                          is a selector that contains values, a key,
+                                          and an operator that relates the key and
+                                          values.
+                                        properties:
+                                          key:
+                                            description: key is the label key that
+                                              the selector applies to.
+                                            type: string
+                                          operator:
+                                            description: operator represents a key's
+                                              relationship to a set of values. Valid
+                                              operators are In, NotIn, Exists and
+                                              DoesNotExist.
+                                            type: string
+                                          values:
+                                            description: values is an array of string
+                                              values. If the operator is In or NotIn,
+                                              the values array must be non-empty.
+                                              If the operator is Exists or DoesNotExist,
+                                              the values array must be empty. This
+                                              array is replaced during a strategic
+                                              merge patch.
+                                            items:
+                                              type: string
+                                            type: array
+                                        required:
+                                        - key
+                                        - operator
+                                        type: object
+                                      type: array
+                                    matchLabels:
+                                      additionalProperties:
+                                        type: string
+                                      description: matchLabels is a map of {key,value}
+                                        pairs. A single {key,value} in the matchLabels
+                                        map is equivalent to an element of matchExpressions,
+                                        whose key field is "key", the operator is
+                                        "In", and the values array contains only "value".
+                                        The requirements are ANDed.
+                                      type: object
+                                  type: object
+                                namespaceSelector:
+                                  description: A label query over the set of namespaces
+                                    that the term applies to. The term is applied
+                                    to the union of the namespaces selected by this
+                                    field and the ones listed in the namespaces field.
+                                    null selector and null or empty namespaces list
+                                    means "this Dguest's namespace". An empty selector
+                                    ({}) matches all namespaces.
+                                  properties:
+                                    matchExpressions:
+                                      description: matchExpressions is a list of label
+                                        selector requirements. The requirements are
+                                        ANDed.
+                                      items:
+                                        description: A label selector requirement
+                                          is a selector that contains values, a key,
+                                          and an operator that relates the key and
+                                          values.
+                                        properties:
+                                          key:
+                                            description: key is the label key that
+                                              the selector applies to.
+                                            type: string
+                                          operator:
+                                            description: operator represents a key's
+                                              relationship to a set of values. Valid
+                                              operators are In, NotIn, Exists and
+                                              DoesNotExist.
+                                            type: string
+                                          values:
+                                            description: values is an array of string
+                                              values. If the operator is In or NotIn,
+                                              the values array must be non-empty.
+                                              If the operator is Exists or DoesNotExist,
+                                              the values array must be empty. This
+                                              array is replaced during a strategic
+                                              merge patch.
+                                            items:
+                                              type: string
+                                            type: array
+                                        required:
+                                        - key
+                                        - operator
+                                        type: object
+                                      type: array
+                                    matchLabels:
+                                      additionalProperties:
+                                        type: string
+                                      description: matchLabels is a map of {key,value}
+                                        pairs. A single {key,value} in the matchLabels
+                                        map is equivalent to an element of matchExpressions,
+                                        whose key field is "key", the operator is
+                                        "In", and the values array contains only "value".
+                                        The requirements are ANDed.
+                                      type: object
+                                  type: object
+                                namespaces:
+                                  description: namespaces specifies a static list
+                                    of namespace names that the term applies to. The
+                                    term is applied to the union of the namespaces
+                                    listed in this field and the ones selected by
+                                    namespaceSelector. null or empty namespaces list
+                                    and null namespaceSelector means "this Dguest's
+                                    namespace".
+                                  items:
+                                    type: string
+                                  type: array
+                                topologyKey:
+                                  description: This Dguest should be co-located (affinity)
+                                    or not co-located (anti-affinity) with the Dguests
+                                    matching the labelSelector in the specified namespaces,
+                                    where co-located is defined as running on a food
+                                    whose value of the label with key topologyKey
+                                    matches that of any food on which any of the selected
+                                    Dguests is running. Empty topologyKey is not allowed.
+                                  type: string
+                              required:
+                              - topologyKey
+                              type: object
+                            type: array
+                        type: object
+                      foodAffinity:
+                        description: Describes food affinity scheduling rules for
+                          the Dguest.
+                        properties:
+                          preferredDuringSchedulingIgnoredDuringExecution:
+                            description: The scheduler will prefer to schedule Dguests
+                              to foods that satisfy the affinity expressions specified
+                              by this field, but it may choose a food that violates
+                              one or more of the expressions. The food that is most
+                              preferred is the one with the greatest sum of weights,
+                              i.e. for each food that meets all of the scheduling
+                              requirements (resource request, requiredDuringScheduling
+                              affinity expressions, etc.), compute a sum by iterating
+                              through the elements of this field and adding "weight"
+                              to the sum if the food matches the corresponding matchExpressions;
+                              the food(s) with the highest sum are the most preferred.
+                            items:
+                              description: An empty preferred scheduling term matches
+                                all objects with implicit weight 0 (i.e. it's a no-op).
+                                A null preferred scheduling term matches no objects
+                                (i.e. is also a no-op).
+                              properties:
+                                preference:
+                                  description: A food selector term, associated with
+                                    the corresponding weight.
+                                  properties:
+                                    matchExpressions:
+                                      description: A list of food selector requirements
+                                        by food's labels.
+                                      items:
+                                        description: A food selector requirement is
+                                          a selector that contains values, a key,
+                                          and an operator that relates the key and
+                                          values.
+                                        properties:
+                                          key:
+                                            description: The label key that the selector
+                                              applies to.
+                                            type: string
+                                          operator:
+                                            description: Represents a key's relationship
+                                              to a set of values. Valid operators
+                                              are In, NotIn, Exists, DoesNotExist.
+                                              Gt, and Lt.
+                                            type: string
+                                          values:
+                                            description: An array of string values.
+                                              If the operator is In or NotIn, the
+                                              values array must be non-empty. If the
+                                              operator is Exists or DoesNotExist,
+                                              the values array must be empty. If the
+                                              operator is Gt or Lt, the values array
+                                              must have a single element, which will
+                                              be interpreted as an integer. This array
+                                              is replaced during a strategic merge
+                                              patch.
+                                            items:
+                                              type: string
+                                            type: array
+                                        required:
+                                        - key
+                                        - operator
+                                        type: object
+                                      type: array
+                                    matchFields:
+                                      description: A list of food selector requirements
+                                        by food's fields.
+                                      items:
+                                        description: A food selector requirement is
+                                          a selector that contains values, a key,
+                                          and an operator that relates the key and
+                                          values.
+                                        properties:
+                                          key:
+                                            description: The label key that the selector
+                                              applies to.
+                                            type: string
+                                          operator:
+                                            description: Represents a key's relationship
+                                              to a set of values. Valid operators
+                                              are In, NotIn, Exists, DoesNotExist.
+                                              Gt, and Lt.
+                                            type: string
+                                          values:
+                                            description: An array of string values.
+                                              If the operator is In or NotIn, the
+                                              values array must be non-empty. If the
+                                              operator is Exists or DoesNotExist,
+                                              the values array must be empty. If the
+                                              operator is Gt or Lt, the values array
+                                              must have a single element, which will
+                                              be interpreted as an integer. This array
+                                              is replaced during a strategic merge
+                                              patch.
+                                            items:
+                                              type: string
+                                            type: array
+                                        required:
+                                        - key
+                                        - operator
+                                        type: object
+                                      type: array
+                                  type: object
+                                weight:
+                                  description: Weight associated with matching the
+                                    corresponding foodSelectorTerm, in the range 1-100.
+                                  format: int32
+                                  type: integer
+                              required:
+                              - preference
+                              - weight
+                              type: object
+                            type: array
+                          requiredDuringSchedulingIgnoredDuringExecution:
+                            description: If the affinity requirements specified by
+                              this field are not met at scheduling time, the Dguest
+                              will not be scheduled onto the food. If the affinity
+                              requirements specified by this field cease to be met
+                              at some point during Dguest execution (e.g. due to an
+                              update), the system may or may not try to eventually
+                              evict the Dguest from its food.
+                            properties:
+                              foodSelectorTerms:
+                                description: Required. A list of food selector terms.
+                                  The terms are ORed.
+                                items:
+                                  description: A null or empty food selector term
+                                    matches no objects. The requirements of them are
+                                    ANDed. The TopologySelectorTerm type implements
+                                    a subset of the FoodSelectorTerm.
+                                  properties:
+                                    matchExpressions:
+                                      description: A list of food selector requirements
+                                        by food's labels.
+                                      items:
+                                        description: A food selector requirement is
+                                          a selector that contains values, a key,
+                                          and an operator that relates the key and
+                                          values.
+                                        properties:
+                                          key:
+                                            description: The label key that the selector
+                                              applies to.
+                                            type: string
+                                          operator:
+                                            description: Represents a key's relationship
+                                              to a set of values. Valid operators
+                                              are In, NotIn, Exists, DoesNotExist.
+                                              Gt, and Lt.
+                                            type: string
+                                          values:
+                                            description: An array of string values.
+                                              If the operator is In or NotIn, the
+                                              values array must be non-empty. If the
+                                              operator is Exists or DoesNotExist,
+                                              the values array must be empty. If the
+                                              operator is Gt or Lt, the values array
+                                              must have a single element, which will
+                                              be interpreted as an integer. This array
+                                              is replaced during a strategic merge
+                                              patch.
+                                            items:
+                                              type: string
+                                            type: array
+                                        required:
+                                        - key
+                                        - operator
+                                        type: object
+                                      type: array
+                                    matchFields:
+                                      description: A list of food selector requirements
+                                        by food's fields.
+                                      items:
+                                        description: A food selector requirement is
+                                          a selector that contains values, a key,
+                                          and an operator that relates the key and
+                                          values.
+                                        properties:
+                                          key:
+                                            description: The label key that the selector
+                                              applies to.
+                                            type: string
+                                          operator:
+                                            description: Represents a key's relationship
+                                              to a set of values. Valid operators
+                                              are In, NotIn, Exists, DoesNotExist.
+                                              Gt, and Lt.
+                                            type: string
+                                          values:
+                                            description: An array of string values.
+                                              If the operator is In or NotIn, the
+                                              values array must be non-empty. If the
+                                              operator is Exists or DoesNotExist,
+                                              the values array must be empty. If the
+                                              operator is Gt or Lt, the values array
+                                              must have a single element, which will
+                                              be interpreted as an integer. This array
+                                              is replaced during a strategic merge
+                                              patch.
+                                            items:
+                                              type: string
+                                            type: array
+                                        required:
+                                        - key
+                                        - operator
+                                        type: object
+                                      type: array
+                                  type: object
+                                type: array
+                            required:
+                            - foodSelectorTerms
+                            type: object
+                        type: object
+                    type: object
+                  cuisine:
+                    description: The cuisine of food, indicating the different food
+                      groups
+                    type: string
+                type: object
               overhead:
                 additionalProperties:
                   anyOf:
@@ -96,23 +972,6 @@ spec:
                       type: string
                   type: object
                 type: array
-              wantBill:
-                description: The Bill the dguest want to scheduler.
-                items:
-                  properties:
-                    cuisine:
-                      description: The cuisine of food, indicating the different food
-                        groups
-                      type: string
-                    number:
-                      description: Number of foods.
-                      type: integer
-                    version:
-                      description: Versions represent different versions of food and
-                        are used in multi-version upgrades
-                      type: string
-                  type: object
-                type: array
             type: object
           status:
             description: DguestStatus is the status for a Food resource
@@ -148,47 +1007,73 @@ spec:
                       type: string
                   type: object
                 type: array
-              foodsInfo:
-                additionalProperties:
-                  items:
+              dguestFoodStatuses:
+                description: DguestFoodStatus contains details for the current status
+                  of this container.
+                properties:
+                  lastReschedulerState:
+                    description: Details about the container's last termination condition.
                     properties:
+                      message:
+                        description: Message regarding why the container is not yet
+                          running.
+                        type: string
                       name:
+                        description: This must be a DNS_LABEL. Each container in a
+                          pod must have a unique name. Cannot be updated.
                         type: string
-                      namespace:
+                      reason:
+                        description: (brief) reason the container is not yet running.
                         type: string
-                      schedulerdTime:
+                      startedAt:
+                        description: Time at which the container was last (re-)started
                         format: date-time
                         type: string
                     type: object
-                  type: array
-                description: FoodsInfo is the foods that using now. key is the cuisineVersion
-                  key, value is food slice scheduer to the dguest.
+                  ready:
+                    description: Specifies whether the container has passed its readiness
+                      probe.
+                    type: boolean
+                  reschedulerCount:
+                    description: The number of times the container has been restarted.
+                    format: int32
+                    type: integer
+                  state:
+                    description: Details about the container's current condition.
+                    properties:
+                      message:
+                        description: Message regarding why the container is not yet
+                          running.
+                        type: string
+                      name:
+                        description: This must be a DNS_LABEL. Each container in a
+                          pod must have a unique name. Cannot be updated.
+                        type: string
+                      reason:
+                        description: (brief) reason the container is not yet running.
+                        type: string
+                      startedAt:
+                        description: Time at which the container was last (re-)started
+                        format: date-time
+                        type: string
+                    type: object
+                required:
+                - ready
+                - reschedulerCount
                 type: object
-              originalFoods:
-                description: OriginalFoods are foods that have been dispatched before
-                  and are not being used now
-                items:
-                  description: OriginalFoodInfo The original foods are foods that
-                    have been dispatched before and are not being used now. Use this
-                    as a reference when scheduling more food, as there are related
-                    configurations above.
-                  properties:
-                    cuisineVersion:
-                      type: string
-                    name:
-                      type: string
-                    namespace:
-                      type: string
-                    removeReason:
-                      type: string
-                    removeTime:
-                      format: date-time
-                      type: string
-                  type: object
-                type: array
+              message:
+                type: string
               phase:
                 description: DguestPhase is a label for the condition of a dguest
                   at the current time.
+                type: string
+              reason:
+                type: string
+              startTime:
+                description: RFC 3339 date and time at which the object was acknowledged
+                  by the business. This is after the scheduler worker ok and wait
+                  for banding.
+                format: date-time
                 type: string
             type: object
         required:

@@ -1,18 +1,18 @@
 package scheduler
 
 import (
-	apidguest "dguest-scheduler/pkg/api/dguest"
 	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
 	"dguest-scheduler/pkg/generated/informers/externalversions"
 	"dguest-scheduler/pkg/scheduler/framework"
 	"dguest-scheduler/pkg/scheduler/internal/queue"
 	"dguest-scheduler/pkg/scheduler/profile"
 	"fmt"
+	"reflect"
+
 	storagev1 "k8s.io/api/storage/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
-	"reflect"
 	//corev1foodaffinity "k8s.io/component-helpers/scheduling/corev1/foodaffinity"
 )
 
@@ -212,14 +212,7 @@ func (sched *Scheduler) deleteDguestFromCache(obj interface{}) {
 
 // assignedDguest selects dguests that are assigned (scheduled and running).
 func assignedDguest(dguest *v1alpha1.Dguest) bool {
-	for _, dish := range dguest.Spec.WantBill {
-		k := apidguest.CuisineVersionKey(dish.Cuisine, dish.Version)
-		fi, ok := dguest.Status.FoodsInfo[k]
-		if !ok || len(fi) < dish.Number {
-			return false
-		}
-	}
-	return true
+	return len(dguest.Spec.FoodNamespacedName) > 0
 }
 
 // responsibleForDguest returns true if the dguest has asked to be scheduled by the given scheduler.

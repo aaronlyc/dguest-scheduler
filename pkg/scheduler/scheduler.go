@@ -57,7 +57,7 @@ type Scheduler struct {
 	// ScheduleDguest tries to schedule the given dguest to one of the foods in the food list.
 	// Return a struct of ScheduleResult with the name of suggested host on success,
 	// otherwise will return a FitError with reasons.
-	ScheduleDguest func(ctx context.Context, fwk framework.Framework, state *framework.CycleState, dguest *v1alpha1.Dguest, cuisineVersion string) (ScheduleResult, error)
+	ScheduleDguest func(ctx context.Context, fwk framework.Framework, state *framework.CycleState, dguest *v1alpha1.Dguest, cuisine string) (ScheduleResult, error)
 
 	// Close this to shut down the scheduler.
 	StopEverything <-chan struct{}
@@ -99,7 +99,7 @@ type Option func(*schedulerOptions)
 // ScheduleResult represents the result of scheduling a dguest.
 type ScheduleResult struct {
 	// Name of the selected food.
-	SuggestedFood *v1alpha1.FoodInfoBase
+	SuggestedFood *framework.FoodScore
 	// The number of foods the scheduler evaluated the dguest against in the filtering
 	// phase and beyond.
 	EvaluatedFoods int

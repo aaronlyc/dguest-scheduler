@@ -6,6 +6,7 @@ import (
 	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
 	"dguest-scheduler/pkg/scheduler/framework"
 	"dguest-scheduler/pkg/scheduler/framework/plugins/names"
+
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -42,7 +43,7 @@ func (pl *AF) Filter(_ context.Context, _ *framework.CycleState, _ *v1alpha1.Dgu
 	if foodInfo.Food() == nil {
 		return framework.NewStatus(framework.Error, "food not found")
 	}
-	if apidguest.FoodArea(foodInfo.Food()) != shouldLabel {
+	if apidguest.CuisineKey(foodInfo.Food()) != shouldLabel {
 		return framework.NewStatus(framework.UnschedulableAndUnresolvable, ErrReason)
 	}
 	return nil

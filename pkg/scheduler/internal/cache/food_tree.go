@@ -3,6 +3,7 @@ package cache
 import (
 	apidguest "dguest-scheduler/pkg/api/dguest"
 	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
+	"dguest-scheduler/pkg/scheduler/framework"
 	"fmt"
 
 	"k8s.io/klog/v2"
@@ -13,14 +14,14 @@ import (
 // FoodTree is NOT thread-safe, any concurrent updates/reads from it must be synchronized by the caller.
 // It is used only by schedulerCache, and should stay as such.
 type foodTree struct {
-	tree  map[string][]*v1alpha1.FoodInfoBase // a map from zone (region-zone) to an array of foods in the zone.
-	zones []string                            // a list of all the zones in the tree (keys)
+	tree  map[string][]*framework.FoodScore // a map from zone (region-zone) to an array of foods in the zone.
+	zones []string                          // a list of all the zones in the tree (keys)
 }
 
 // newFoodTree creates a FoodTree from foods.
 func newFoodTree(foods []*v1alpha1.Food) *foodTree {
 	nt := &foodTree{
-		tree: make(map[string][]*v1alpha1.FoodInfoBase),
+		tree: make(map[string][]*framework.FoodScore),
 	}
 	for _, n := range foods {
 		nt.addFood(n)
@@ -31,7 +32,7 @@ func newFoodTree(foods []*v1alpha1.Food) *foodTree {
 // addFood adds a food and its corresponding zone to the tree. If the zone already exists, the food
 // is added to the array of foods in that zone.
 func (nt *foodTree) addFood(f *v1alpha1.Food) {
-	zone := apidguest.FoodCuisineVersionKey(f)
+	zone := apidguest.FoodcuisineKey(f)
 	if na, ok := nt.tree[zone]; ok {
 		for _, foodBase := range na {
 			if foodBase.Name == f.Name {
@@ -39,17 +40,13 @@ func (nt *foodTree) addFood(f *v1alpha1.Food) {
 				return
 			}
 		}
-		nt.tree[zone] = append(na, &v1alpha1.FoodInfoBase{
-			Namespace:      f.Namespace,
-			Name:           f.Name,
-			CuisineVersion: zone,
+		nt.tree[zone] = append(na, &framework.FoodScore{
+			Name: f.Name,
 		})
 	} else {
 		nt.zones = append(nt.zones, zone)
-		nt.tree[zone] = []*v1alpha1.FoodInfoBase{{
-			Namespace:      f.Namespace,
-			Name:           f.Name,
-			CuisineVersion: zone,
+		nt.tree[zone] = []*framework.FoodScore{{
+			Name: f.Name,
 		}}
 	}
 	klog.V(2).InfoS("Added food in listed group to FoodTree", "food", klog.KObj(f), "zone", zone)
@@ -57,7 +54,7 @@ func (nt *foodTree) addFood(f *v1alpha1.Food) {
 
 // removeFood removes a food from the FoodTree.
 func (nt *foodTree) removeFood(n *v1alpha1.Food) error {
-	zone := apidguest.FoodCuisineVersionKey(n)
+	zone := apidguest.FoodcuisineKey(n)
 	if na, ok := nt.tree[zone]; ok {
 		for i, foodInfo := range na {
 			if foodInfo.Name == n.Name {
@@ -90,9 +87,9 @@ func (nt *foodTree) removeZone(zone string) {
 func (nt *foodTree) updateFood(old, new *v1alpha1.Food) {
 	var oldZone string
 	if old != nil {
-		oldZone = apidguest.FoodCuisineVersionKey(old)
+		oldZone = apidguest.FoodcuisineKey(old)
 	}
-	newZone := apidguest.FoodCuisineVersionKey(new)
+	newZone := apidguest.FoodcuisineKey(new)
 	// If the zone ID of the food has not changed, we don't need to do anything. Name of the food
 	// cannot be changed in an update.
 	if oldZone == newZone {
@@ -102,19 +99,19 @@ func (nt *foodTree) updateFood(old, new *v1alpha1.Food) {
 	nt.addFood(new)
 }
 
-func (nt *foodTree) ZoneMap() map[string][]*v1alpha1.FoodInfoBase {
+func (nt *foodTree) ZoneMap() map[string][]*framework.FoodScore {
 	return nt.tree
 }
 
 // list returns the list of names of the food. FoodTree iterates over zones and in each zone iterates
 // over foods in a round robin fashion.
-func (nt *foodTree) list(cuisineVersion string) []*v1alpha1.FoodInfoBase {
+func (nt *foodTree) list(cuisine string) []*framework.FoodScore {
 	if len(nt.zones) == 0 {
 		return nil
 	}
-	return nt.tree[cuisineVersion]
+	return nt.tree[cuisine]
 }
 
-func (nt *foodTree) foodCount(cuisineVersion string) int {
-	return len(nt.list(cuisineVersion))
+func (nt *foodTree) foodCount(cuisine string) int {
+	return len(nt.list(cuisine))
 }

@@ -196,8 +196,8 @@ func (ev *Evaluator) Preempt(ctx context.Context, dguest *v1alpha1.Dguest, m fra
 // FindCandidates calculates a slice of preemption candidates.
 // Each candidate is executable to make the given <dguest> schedulable.
 func (ev *Evaluator) findCandidates(ctx context.Context, dguest *v1alpha1.Dguest, m framework.FoodToStatusMap) ([]Candidate, framework.FoodToStatusMap, error) {
-	//todo: 增加cuisineVersion的赋值
-	allFoods := ev.Handler.SnapshotSharedLister().FoodInfos().List("")
+	//todo: 增加cuisine的赋值
+	allFoods := ev.Handler.SnapshotSharedLister().FoodInfos().List()
 	// if err != nil {
 	// 	return nil, nil, err
 	// }
@@ -367,10 +367,8 @@ func (ev *Evaluator) prepareCandidate(ctx context.Context, c Candidate, dguest *
 	// this food. So, we should remove their nomination. Removing their
 	// nomination updates these dguests and moves them to the active queue. It
 	// lets scheduler find another place for them.
-	nominatedDguests := getLowerPriorityNominatedDguests(fh, dguest, &v1alpha1.FoodInfoBase{
-		Namespace:      "",
-		Name:           c.Name(),
-		CuisineVersion: "",
+	nominatedDguests := getLowerPriorityNominatedDguests(fh, dguest, &framework.FoodScore{
+		Name: c.Name(),
 	})
 	if err := util.ClearNominatedFoodName(ctx, cs, nominatedDguests...); err != nil {
 		klog.ErrorS(err, "Cannot clear 'NominatedFoodName' field")
@@ -544,7 +542,7 @@ func pickOneFoodForPreemption(foodsToVictims map[string]*extenderv1.Victims) str
 // manipulation of FoodInfo and PreFilter state per nominated dguest. It may not be
 // worth the complexity, especially because we generally expect to have a very
 // small number of nominated dguests per food.
-func getLowerPriorityNominatedDguests(pn framework.DguestNominator, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) []*v1alpha1.Dguest {
+func getLowerPriorityNominatedDguests(pn framework.DguestNominator, dguest *v1alpha1.Dguest, selectedFood *framework.FoodScore) []*v1alpha1.Dguest {
 	dguestInfos := pn.NominatedDguestsForFood(selectedFood)
 
 	if len(dguestInfos) == 0 {

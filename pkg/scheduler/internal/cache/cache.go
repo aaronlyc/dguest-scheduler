@@ -4,7 +4,6 @@ import (
 	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
 	"fmt"
 	"os"
-	"reflect"
 	"sync"
 	"time"
 
@@ -182,7 +181,7 @@ func (cache *cacheImpl) Dump() *Dump {
 // foodInfo.Food() is guaranteed to be not nil for all the foods in the snapshot.
 // This function tracks generation number of FoodInfo and updates only the
 // entries of an existing snapshot that have changed after the snapshot was taken.
-func (cache *cacheImpl) UpdateSnapshot(foodSnapshot *Snapshot, cuisineVersion string) error {
+func (cache *cacheImpl) UpdateSnapshot(foodSnapshot *Snapshot, cuisine string) error {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 
@@ -199,7 +198,7 @@ func (cache *cacheImpl) UpdateSnapshot(foodSnapshot *Snapshot, cuisineVersion st
 		}
 		if np := cachefood.info.Food(); np != nil {
 
-			key := apidguest.FoodCuisineVersionKey(np)
+			key := apidguest.FoodcuisineKey(np)
 			_, ok := newSnapshotFoodInfo[key]
 			if !ok {
 				newSnapshotFoodInfo[key] = []*framework.FoodInfo{}
@@ -217,8 +216,8 @@ func (cache *cacheImpl) UpdateSnapshot(foodSnapshot *Snapshot, cuisineVersion st
 	// Comparing to dguests in foodTree.
 	// Deleted foods get removed from the tree, but they might remain in the foods map
 	// if they still have non-deleted Dguests.
-	if foodSnapshot.NumFoods(cuisineVersion) > cache.foodTree.foodCount(cuisineVersion) {
-		cache.removeDeletedFoodsFromSnapshot(foodSnapshot, foodSnapshot.NumFoods(cuisineVersion)-cache.foodTree.foodCount(cuisineVersion))
+	if foodSnapshot.NumFoods(cuisine) > cache.foodTree.foodCount(cuisine) {
+		cache.removeDeletedFoodsFromSnapshot(foodSnapshot, foodSnapshot.NumFoods(cuisine)-cache.foodTree.foodCount(cuisine))
 	}
 
 	// if len(foodSnapshot.foodInfoList) != cache.foodTree.numFoods {
@@ -327,8 +326,8 @@ func (cache *cacheImpl) ForgetDguest(dguest *v1alpha1.Dguest) error {
 
 	currState, ok := cache.dguestStates[key]
 
-	if ok && !reflect.DeepEqual(currState.dguest.Status.FoodsInfo, dguest.Status.FoodsInfo) {
-		return fmt.Errorf("dguest %v was assumed on %v but assigned to %v", key, dguest.Status.FoodsInfo, currState.dguest.Status.FoodsInfo)
+	if ok && currState.dguest.Spec.FoodNamespacedName != dguest.Spec.FoodNamespacedName {
+		return fmt.Errorf("dguest %v was assumed on %v but assigned to %v", key, dguest.Spec.FoodNamespacedName, currState.dguest.Spec.FoodNamespacedName)
 	}
 
 	// Only assumed dguest can be forgotten.
@@ -344,17 +343,14 @@ func (cache *cacheImpl) addDguest(dguest *v1alpha1.Dguest, assumeDguest bool) er
 	if err != nil {
 		return err
 	}
-	for _, infos := range dguest.Status.FoodsInfo {
-		for _, info := range infos {
-			n, ok := cache.foods[info.Name]
-			if !ok {
-				n = newFoodInfoListItem(framework.NewFoodInfo())
-				cache.foods[info.Name] = n
-			}
-			n.info.AddDguest(dguest)
-			cache.moveFoodInfoToHead(info.Name)
-		}
+	selectFood := dguest.Spec.FoodNamespacedName
+	n, ok := cache.foods[selectFood]
+	if !ok {
+		n = newFoodInfoListItem(framework.NewFoodInfo())
+		cache.foods[selectFood] = n
 	}
+	n.info.AddDguest(dguest)
+	cache.moveFoodInfoToHead(selectFood)
 	ps := &dguestState{
 		dguest: dguest,
 	}
@@ -383,21 +379,19 @@ func (cache *cacheImpl) removeDguest(dguest *v1alpha1.Dguest) error {
 		return err
 	}
 
-	for _, infos := range dguest.Status.FoodsInfo {
-		for _, info := range infos {
-			n, ok := cache.foods[info.Name]
-			if !ok {
-				klog.ErrorS(nil, "Food not found when trying to remove dguest", "food", info.Name, "dguest", klog.KObj(dguest))
-			} else {
-				if err := n.info.RemoveDguest(dguest); err != nil {
-					return err
-				}
-				if len(n.info.Dguests) == 0 && n.info.Food() == nil {
-					cache.removeFoodInfoFromList(info.Name)
-				} else {
-					cache.moveFoodInfoToHead(info.Name)
-				}
-			}
+	selectFood := dguest.Spec.FoodNamespacedName
+
+	n, ok := cache.foods[selectFood]
+	if !ok {
+		klog.ErrorS(nil, "Food not found when trying to remove dguest", "food", selectFood, "dguest", klog.KObj(dguest))
+	} else {
+		if err := n.info.RemoveDguest(dguest); err != nil {
+			return err
+		}
+		if len(n.info.Dguests) == 0 && n.info.Food() == nil {
+			cache.removeFoodInfoFromList(selectFood)
+		} else {
+			cache.moveFoodInfoToHead(selectFood)
 		}
 	}
 
@@ -418,9 +412,9 @@ func (cache *cacheImpl) AddDguest(dguest *v1alpha1.Dguest) error {
 	currState, ok := cache.dguestStates[key]
 	switch {
 	case ok && cache.assumedDguests.Has(key):
-		if !reflect.DeepEqual(currState.dguest.Status.FoodsInfo, dguest.Status.FoodsInfo) {
+		if currState.dguest.Spec.FoodNamespacedName != dguest.Spec.FoodNamespacedName {
 			// The dguest was added to a different food than it was assumed to.
-			klog.InfoS("Dguest was added to a different food than it was assumed", "dguest", klog.KObj(dguest), "assumedFood", dguest.Status.FoodsInfo, "currentFood", currState.dguest.Status.FoodsInfo)
+			klog.InfoS("Dguest was added to a different food than it was assumed", "dguest", klog.KObj(dguest), "assumedFood", dguest.Spec.FoodNamespacedName, "currentFood", currState.dguest.Spec.FoodNamespacedName)
 			if err = cache.updateDguest(currState.dguest, dguest); err != nil {
 				klog.ErrorS(err, "Error occurred while updating dguest")
 			}
@@ -453,7 +447,7 @@ func (cache *cacheImpl) UpdateDguest(oldDguest, newDguest *v1alpha1.Dguest) erro
 	// An assumed dguest won't have Update/Remove event. It needs to have Add event
 	// before Update event, in which case the state would change from Assumed to Added.
 	if ok && !cache.assumedDguests.Has(key) {
-		if !reflect.DeepEqual(currState.dguest.Status.FoodsInfo, newDguest.Status.FoodsInfo) {
+		if currState.dguest.Spec.FoodNamespacedName != newDguest.Spec.FoodNamespacedName {
 			klog.ErrorS(nil, "Dguest updated on a different food than previously added to", "dguest", klog.KObj(oldDguest))
 			klog.ErrorS(nil, "scheduler cache is corrupted and can badly affect scheduling decisions")
 			os.Exit(1)
@@ -476,9 +470,10 @@ func (cache *cacheImpl) RemoveDguest(dguest *v1alpha1.Dguest) error {
 	if !ok {
 		return fmt.Errorf("dguest %v is not found in scheduler cache, so cannot be removed from it", key)
 	}
-	if !reflect.DeepEqual(currState.dguest.Status.FoodsInfo, dguest.Status.FoodsInfo) {
-		klog.ErrorS(nil, "Dguest was added to a different food than it was assumed", "dguest", klog.KObj(dguest), "assumedFood", dguest.Status.FoodsInfo, "currentFood", currState.dguest.Status.FoodsInfo)
-		if len(dguest.Status.FoodsInfo) > 0 {
+
+	if currState.dguest.Spec.FoodNamespacedName != dguest.Spec.FoodNamespacedName {
+		klog.ErrorS(nil, "Dguest was added to a different food than it was assumed", "dguest", klog.KObj(dguest), "assumedFood", dguest.Spec.FoodNamespacedName, "currentFood", currState.dguest.Spec.FoodNamespacedName)
+		if len(dguest.Spec.FoodNamespacedName) > 0 {
 			// An empty FoodName is possible when the scheduler misses a Delete
 			// event and it gets the last known state from the informer cache.
 			klog.ErrorS(nil, "scheduler cache is corrupted and can badly affect scheduling decisions")

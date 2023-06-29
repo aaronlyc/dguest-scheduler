@@ -103,7 +103,7 @@ package runtime
 // 	return injectNormalizeRes(pl.inj, scores)
 // }
 
-// func (pl *TestScoreWithNormalizePlugin) Score(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) (int64, *framework.Status) {
+// func (pl *TestScoreWithNormalizePlugin) Score(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *framework.FoodScore) (int64, *framework.Status) {
 // 	return setScoreRes(pl.inj)
 // }
 
@@ -125,7 +125,7 @@ package runtime
 // 	return framework.NewStatus(framework.Code(pl.inj.PreScoreStatus), "injected status")
 // }
 
-// func (pl *TestScorePlugin) Score(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) (int64, *framework.Status) {
+// func (pl *TestScorePlugin) Score(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *framework.FoodScore) (int64, *framework.Status) {
 // 	return setScoreRes(pl.inj)
 // }
 
@@ -165,7 +165,7 @@ package runtime
 // 	return false
 // }
 
-// func (pl *TestPlugin) Score(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) (int64, *framework.Status) {
+// func (pl *TestPlugin) Score(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *framework.FoodScore) (int64, *framework.Status) {
 // 	return 0, framework.NewStatus(framework.Code(pl.inj.ScoreStatus), "injected status")
 // }
 
@@ -193,25 +193,25 @@ package runtime
 // 	return framework.NewStatus(framework.Code(pl.inj.PreScoreStatus), "injected status")
 // }
 
-// func (pl *TestPlugin) Reserve(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) *framework.Status {
+// func (pl *TestPlugin) Reserve(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *framework.FoodScore) *framework.Status {
 // 	return framework.NewStatus(framework.Code(pl.inj.ReserveStatus), "injected status")
 // }
 
-// func (pl *TestPlugin) Unreserve(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) {
+// func (pl *TestPlugin) Unreserve(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *framework.FoodScore) {
 // }
 
-// func (pl *TestPlugin) PreBind(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) *framework.Status {
+// func (pl *TestPlugin) PreBind(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *framework.FoodScore) *framework.Status {
 // 	return framework.NewStatus(framework.Code(pl.inj.PreBindStatus), "injected status")
 // }
 
-// func (pl *TestPlugin) PostBind(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) {
+// func (pl *TestPlugin) PostBind(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *framework.FoodScore) {
 // }
 
-// func (pl *TestPlugin) Permit(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) (*framework.Status, time.Duration) {
+// func (pl *TestPlugin) Permit(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *framework.FoodScore) (*framework.Status, time.Duration) {
 // 	return framework.NewStatus(framework.Code(pl.inj.PermitStatus), "injected status"), time.Duration(0)
 // }
 
-// func (pl *TestPlugin) Bind(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) *framework.Status {
+// func (pl *TestPlugin) Bind(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *framework.FoodScore) *framework.Status {
 // 	return framework.NewStatus(framework.Code(pl.inj.BindStatus), "injected status")
 // }
 
@@ -294,7 +294,7 @@ package runtime
 // func (pp *TestPermitPlugin) Name() string {
 // 	return permitPlugin
 // }
-// func (pp *TestPermitPlugin) Permit(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) (*framework.Status, time.Duration) {
+// func (pp *TestPermitPlugin) Permit(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *framework.FoodScore) (*framework.Status, time.Duration) {
 // 	return framework.NewStatus(framework.Wait), 10 * time.Second
 // }
 
@@ -328,7 +328,7 @@ package runtime
 // 	return bindPlugin
 // }
 
-// func (t TestBindPlugin) Bind(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) *framework.Status {
+// func (t TestBindPlugin) Bind(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *framework.FoodScore) *framework.Status {
 // 	return nil
 // }
 

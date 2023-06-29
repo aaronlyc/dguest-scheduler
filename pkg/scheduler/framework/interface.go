@@ -31,7 +31,7 @@ type FoodScoreList []FoodScore
 
 // FoodScore is a struct with food name and score.
 type FoodScore struct {
-	v1alpha1.FoodInfoBase
+	Name  string
 	Score int64
 }
 
@@ -415,7 +415,7 @@ type ScorePlugin interface {
 	// Score is called on each filtered food. It must return success and an integer
 	// indicating the rank of the food. All scoring plugins must return success or
 	// the dguest will be rejected.
-	Score(ctx context.Context, state *CycleState, p *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) (int64, *Status)
+	Score(ctx context.Context, state *CycleState, p *v1alpha1.Dguest, selectedFood *FoodScore) (int64, *Status)
 
 	// ScoreExtensions returns a ScoreExtensions interface if it implements one, or nil if does not.
 	ScoreExtensions() ScoreExtensions
@@ -432,13 +432,13 @@ type ReservePlugin interface {
 	// Reserve is called by the scheduling framework when the scheduler cache is
 	// updated. If this method returns a failed Status, the scheduler will call
 	// the Unreserve method for all enabled ReservePlugins.
-	Reserve(ctx context.Context, state *CycleState, p *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) *Status
+	Reserve(ctx context.Context, state *CycleState, p *v1alpha1.Dguest, selectedFood *FoodScore) *Status
 	// Unreserve is called by the scheduling framework when a reserved dguest was
 	// rejected, an error occurred during reservation of subsequent plugins, or
 	// in a later phase. The Unreserve method implementation must be idempotent
 	// and may be called by the scheduler even if the corresponding Reserve
 	// method for the same plugin was not called.
-	Unreserve(ctx context.Context, state *CycleState, p *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase)
+	Unreserve(ctx context.Context, state *CycleState, p *v1alpha1.Dguest, selectedFood *FoodScore)
 }
 
 // PreBindPlugin is an interface that must be implemented by "PreBind" plugins.
@@ -447,7 +447,7 @@ type PreBindPlugin interface {
 	Plugin
 	// PreBind is called before binding a dguest. All prebind plugins must return
 	// success or the dguest will be rejected and won't be sent for binding.
-	PreBind(ctx context.Context, state *CycleState, p *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) *Status
+	PreBind(ctx context.Context, state *CycleState, p *v1alpha1.Dguest, selectedFood *FoodScore) *Status
 }
 
 // PostBindPlugin is an interface that must be implemented by "PostBind" plugins.
@@ -458,7 +458,7 @@ type PostBindPlugin interface {
 	// informational. A common application of this extension point is for cleaning
 	// up. If a plugin needs to clean-up its state after a dguest is scheduled and
 	// bound, PostBind is the extension point that it should register.
-	PostBind(ctx context.Context, state *CycleState, p *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase)
+	PostBind(ctx context.Context, state *CycleState, p *v1alpha1.Dguest, selectedFood *FoodScore)
 }
 
 // PermitPlugin is an interface that must be implemented by "Permit" plugins.
@@ -471,7 +471,7 @@ type PermitPlugin interface {
 	// The dguest will also be rejected if the wait timeout or the dguest is rejected while
 	// waiting. Note that if the plugin returns "wait", the framework will wait only
 	// after running the remaining plugins given that no other plugin rejects the dguest.
-	Permit(ctx context.Context, state *CycleState, p *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) (*Status, time.Duration)
+	Permit(ctx context.Context, state *CycleState, p *v1alpha1.Dguest, selectedFood *FoodScore) (*Status, time.Duration)
 }
 
 // BindPlugin is an interface that must be implemented by "Bind" plugins. Bind
@@ -484,7 +484,7 @@ type BindPlugin interface {
 	// remaining bind plugins are skipped. When a bind plugin does not handle a dguest,
 	// it must return Skip in its Status code. If a bind plugin returns an Error, the
 	// dguest is rejected and will not be bound.
-	Bind(ctx context.Context, state *CycleState, p *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) *Status
+	Bind(ctx context.Context, state *CycleState, p *v1alpha1.Dguest, selectedFood *FoodScore) *Status
 }
 
 // Framework manages the set of plugins in use by the scheduling framework.
@@ -513,20 +513,20 @@ type Framework interface {
 	// anything but Success. If the Status code is "Unschedulable", it is
 	// considered as a scheduling check failure, otherwise, it is considered as an
 	// internal error. In either case the dguest is not going to be bound.
-	RunPreBindPlugins(ctx context.Context, state *CycleState, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) *Status
+	RunPreBindPlugins(ctx context.Context, state *CycleState, dguest *v1alpha1.Dguest, selectedFood *FoodScore) *Status
 
 	// RunPostBindPlugins runs the set of configured PostBind plugins.
-	RunPostBindPlugins(ctx context.Context, state *CycleState, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase)
+	RunPostBindPlugins(ctx context.Context, state *CycleState, dguest *v1alpha1.Dguest, selectedFood *FoodScore)
 
 	// RunReservePluginsReserve runs the Reserve method of the set of
 	// configured Reserve plugins. If any of these calls returns an error, it
 	// does not continue running the remaining ones and returns the error. In
 	// such case, dguest will not be scheduled.
-	RunReservePluginsReserve(ctx context.Context, state *CycleState, dguest *v1alpha1.Dguest, selectedFoods *v1alpha1.FoodInfoBase) *Status
+	RunReservePluginsReserve(ctx context.Context, state *CycleState, dguest *v1alpha1.Dguest, selectedFoods *FoodScore) *Status
 
 	// RunReservePluginsUnreserve runs the Unreserve method of the set of
 	// configured Reserve plugins.
-	RunReservePluginsUnreserve(ctx context.Context, state *CycleState, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase)
+	RunReservePluginsUnreserve(ctx context.Context, state *CycleState, dguest *v1alpha1.Dguest, selectedFood *FoodScore)
 
 	// RunPermitPlugins runs the set of configured Permit plugins. If any of these
 	// plugins returns a status other than "Success" or "Wait", it does not continue
@@ -534,7 +534,7 @@ type Framework interface {
 	// plugins returns "Wait", then this function will create and add waiting dguest
 	// to a map of currently waiting dguests and return status with "Wait" code.
 	// Dguest will remain waiting dguest for the minimum duration returned by the Permit plugins.
-	RunPermitPlugins(ctx context.Context, state *CycleState, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) *Status
+	RunPermitPlugins(ctx context.Context, state *CycleState, dguest *v1alpha1.Dguest, selectedFood *FoodScore) *Status
 
 	// WaitOnPermit will block, if the dguest is a waiting dguest, until the waiting dguest is rejected or allowed.
 	WaitOnPermit(ctx context.Context, dguest *v1alpha1.Dguest) *Status
@@ -544,7 +544,7 @@ type Framework interface {
 	// binding, it should return code=5("skip") status. Otherwise, it should return "Error"
 	// or "Success". If none of the plugins handled binding, RunBindPlugins returns
 	// code=5("skip") status.
-	RunBindPlugins(ctx context.Context, state *CycleState, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) *Status
+	RunBindPlugins(ctx context.Context, state *CycleState, dguest *v1alpha1.Dguest, selectedFood *FoodScore) *Status
 
 	// HasFilterPlugins returns true if at least one Filter plugin is defined.
 	HasFilterPlugins() bool
@@ -687,7 +687,7 @@ type DguestNominator interface {
 	// UpdateNominatedDguest updates the <oldDguest> with <newDguest>.
 	UpdateNominatedDguest(oldDguest *v1alpha1.Dguest, newDguestInfo *DguestInfo)
 	// NominatedDguestsForFood returns nominatedDguests on the given food.
-	NominatedDguestsForFood(selectedFood *v1alpha1.FoodInfoBase) []*DguestInfo
+	NominatedDguestsForFood(selectedFood *FoodScore) []*DguestInfo
 }
 
 // PluginsRunner abstracts operations to run some plugins.

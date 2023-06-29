@@ -709,7 +709,7 @@ func (npm *nominator) AddNominatedDguest(pi *framework.DguestInfo, nominatingInf
 
 // NominatedDguestsForFood returns a copy of dguests that are nominated to run on the given food,
 // but they are waiting for other dguests to be removed from the food.
-func (npm *nominator) NominatedDguestsForFood(selectedFood *v1alpha1.FoodInfoBase) []*framework.DguestInfo {
+func (npm *nominator) NominatedDguestsForFood(selectedFood *framework.FoodScore) []*framework.DguestInfo {
 	npm.RLock()
 	defer npm.RUnlock()
 	// Make a copy of the nominated Dguests so the caller can mutate safely.
@@ -845,41 +845,39 @@ func (npm *nominator) add(pi *framework.DguestInfo, nominatingInfo *framework.No
 	// one instance of the dguest.
 	npm.delete(pi.Dguest)
 
-	for _, infos := range pi.Dguest.Status.FoodsInfo {
-		for _, info := range infos {
-			var foodName string
-			if nominatingInfo.Mode() == framework.ModeOverride {
-				foodName = nominatingInfo.NominatedFoodName
-			} else if nominatingInfo.Mode() == framework.ModeNoop {
-				if info.Name == "" {
-					return
-				}
-				foodName = info.Name
-			}
+	selectFood := pi.Dguest.Spec.FoodNamespacedName
 
-			if npm.dguestLister != nil {
-				//If the dguest was removed or if it was already scheduled, don't nominate it.
-				updatedDguest, err := npm.dguestLister.Dguests(pi.Dguest.Namespace).Get(pi.Dguest.Name)
-				if err != nil {
-					klog.V(4).InfoS("Dguest doesn't exist in dguestLister, aborted adding it to the nominator", "dguest", klog.KObj(pi.Dguest))
-					return
-				}
-				if len(updatedDguest.Status.FoodsInfo) > 0 {
-					klog.V(4).InfoS("Dguest is already scheduled to a food, aborted adding it to the nominator", "dguest", klog.KObj(pi.Dguest), "food", updatedDguest.Status.FoodsInfo)
-					return
-				}
-			}
+	var foodName string
+	if nominatingInfo.Mode() == framework.ModeOverride {
+		foodName = nominatingInfo.NominatedFoodName
+	} else if nominatingInfo.Mode() == framework.ModeNoop {
+		if selectFood == "" {
+			return
+		}
+		foodName = selectFood
+	}
 
-			npm.nominatedDguestToFood[pi.Dguest.UID] = foodName
-			for _, npi := range npm.nominatedDguests[foodName] {
-				if npi.Dguest.UID == pi.Dguest.UID {
-					klog.V(4).InfoS("Dguest already exists in the nominator", "dguest", klog.KObj(npi.Dguest))
-					return
-				}
-			}
-			npm.nominatedDguests[foodName] = append(npm.nominatedDguests[foodName], pi)
+	if npm.dguestLister != nil {
+		//If the dguest was removed or if it was already scheduled, don't nominate it.
+		updatedDguest, err := npm.dguestLister.Dguests(pi.Dguest.Namespace).Get(pi.Dguest.Name)
+		if err != nil {
+			klog.V(4).InfoS("Dguest doesn't exist in dguestLister, aborted adding it to the nominator", "dguest", klog.KObj(pi.Dguest))
+			return
+		}
+		if len(updatedDguest.Spec.FoodNamespacedName) > 0 {
+			klog.V(4).InfoS("Dguest is already scheduled to a food, aborted adding it to the nominator", "dguest", klog.KObj(pi.Dguest), "food", updatedDguest.Spec.FoodNamespacedName)
+			return
 		}
 	}
+
+	npm.nominatedDguestToFood[pi.Dguest.UID] = foodName
+	for _, npi := range npm.nominatedDguests[foodName] {
+		if npi.Dguest.UID == pi.Dguest.UID {
+			klog.V(4).InfoS("Dguest already exists in the nominator", "dguest", klog.KObj(npi.Dguest))
+			return
+		}
+	}
+	npm.nominatedDguests[foodName] = append(npm.nominatedDguests[foodName], pi)
 }
 
 func (npm *nominator) delete(p *v1alpha1.Dguest) {

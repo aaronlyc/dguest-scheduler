@@ -110,7 +110,7 @@ type Cache interface {
 	// on this food.
 	// The snapshot only includes Foods that are not deleted at the time this function is called.
 	// foodinfo.Food() is guaranteed to be not nil for all the foods in the snapshot.
-	UpdateSnapshot(foodSnapshot *Snapshot, cuisineVersion string) error
+	UpdateSnapshot(foodSnapshot *Snapshot, cuisine string) error
 
 	// Dump produces a dump of the current cache.
 	Dump() *Dump

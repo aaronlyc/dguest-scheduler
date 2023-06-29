@@ -166,7 +166,7 @@ package scheduler
 //	return "NumericMap"
 //}
 //
-//func (pl *numericMapPlugin) Score(_ context.Context, _ *framework.CycleState, _ *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) (int64, *framework.Status) {
+//func (pl *numericMapPlugin) Score(_ context.Context, _ *framework.CycleState, _ *v1alpha1.Dguest, selectedFood *framework.FoodScore) (int64, *framework.Status) {
 //	score, err := strconv.Atoi(foodName)
 //	if err != nil {
 //		return 0, framework.NewStatus(framework.Error, fmt.Sprintf("Error converting foodname to int: %+v", foodName))
@@ -189,7 +189,7 @@ package scheduler
 //	return "ReverseNumericMap"
 //}
 //
-//func (pl *reverseNumericMapPlugin) Score(_ context.Context, _ *framework.CycleState, _ *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) (int64, *framework.Status) {
+//func (pl *reverseNumericMapPlugin) Score(_ context.Context, _ *framework.CycleState, _ *v1alpha1.Dguest, selectedFood *framework.FoodScore) (int64, *framework.Status) {
 //	score, err := strconv.Atoi(foodName)
 //	if err != nil {
 //		return 0, framework.NewStatus(framework.Error, fmt.Sprintf("Error converting foodname to int: %+v", foodName))
@@ -306,7 +306,7 @@ package scheduler
 //	return t.name
 //}
 //
-//func (t *TestPlugin) Score(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) (int64, *framework.Status) {
+//func (t *TestPlugin) Score(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *framework.FoodScore) (int64, *framework.Status) {
 //	return 1, nil
 //}
 //

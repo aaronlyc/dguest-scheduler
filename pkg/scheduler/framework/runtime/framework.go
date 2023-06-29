@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"context"
-	apidguest "dguest-scheduler/pkg/api/dguest"
 	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
 	"dguest-scheduler/pkg/generated/clientset/versioned"
 	"dguest-scheduler/pkg/generated/informers/externalversions"
@@ -856,10 +855,8 @@ func addNominatedDguests(ctx context.Context, fh framework.Handle, dguest *v1alp
 		return false, state, foodInfo, nil
 	}
 	food := foodInfo.Food()
-	nominatedDguestInfos := fh.NominatedDguestsForFood(&v1alpha1.FoodInfoBase{
-		Namespace:      food.Namespace,
-		Name:           food.Name,
-		CuisineVersion: apidguest.FoodCuisineVersionKey(food),
+	nominatedDguestInfos := fh.NominatedDguestsForFood(&framework.FoodScore{
+		Name: food.Name,
 	})
 	if len(nominatedDguestInfos) == 0 {
 		return false, state, foodInfo, nil
@@ -932,10 +929,8 @@ func (f *frameworkImpl) RunScorePlugins(ctx context.Context, state *framework.Cy
 	f.Parallelizer().Until(ctx, len(foods), func(index int) {
 		for _, pl := range f.scorePlugins {
 			food := foods[index]
-			s, status := f.runScorePlugin(ctx, pl, state, dguest, &v1alpha1.FoodInfoBase{
-				Namespace:      food.Namespace,
-				Name:           food.Name,
-				CuisineVersion: apidguest.FoodCuisineVersionKey(food),
+			s, status := f.runScorePlugin(ctx, pl, state, dguest, &framework.FoodScore{
+				Name: food.Name,
 			})
 			if !status.IsSuccess() {
 				err := fmt.Errorf("plugin %q failed with: %w", pl.Name(), status.AsError())
@@ -943,11 +938,7 @@ func (f *frameworkImpl) RunScorePlugins(ctx context.Context, state *framework.Cy
 				return
 			}
 			pluginToFoodScores[pl.Name()][index] = framework.FoodScore{
-				FoodInfoBase: v1alpha1.FoodInfoBase{
-					Namespace:      food.Namespace,
-					Name:           food.Name,
-					CuisineVersion: apidguest.FoodCuisineVersionKey(food),
-				},
+				Name:  food.Name,
 				Score: s,
 			}
 		}
@@ -998,7 +989,7 @@ func (f *frameworkImpl) RunScorePlugins(ctx context.Context, state *framework.Cy
 	return pluginToFoodScores, nil
 }
 
-func (f *frameworkImpl) runScorePlugin(ctx context.Context, pl framework.ScorePlugin, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) (int64, *framework.Status) {
+func (f *frameworkImpl) runScorePlugin(ctx context.Context, pl framework.ScorePlugin, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *framework.FoodScore) (int64, *framework.Status) {
 	if !state.ShouldRecordPluginMetrics() {
 		return pl.Score(ctx, state, dguest, selectedFood)
 	}
@@ -1021,7 +1012,7 @@ func (f *frameworkImpl) runScoreExtension(ctx context.Context, pl framework.Scor
 // RunPreBindPlugins runs the set of configured prebind plugins. It returns a
 // failure (bool) if any of the plugins returns an error. It also returns an
 // error containing the rejection message or the error occurred in the plugin.
-func (f *frameworkImpl) RunPreBindPlugins(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) (status *framework.Status) {
+func (f *frameworkImpl) RunPreBindPlugins(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *framework.FoodScore) (status *framework.Status) {
 	startTime := time.Now()
 	defer func() {
 		metrics.FrameworkExtensionPointDuration.WithLabelValues(preBind, status.Code().String(), f.profileName).Observe(metrics.SinceInSeconds(startTime))
@@ -1037,7 +1028,7 @@ func (f *frameworkImpl) RunPreBindPlugins(ctx context.Context, state *framework.
 	return nil
 }
 
-func (f *frameworkImpl) runPreBindPlugin(ctx context.Context, pl framework.PreBindPlugin, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) *framework.Status {
+func (f *frameworkImpl) runPreBindPlugin(ctx context.Context, pl framework.PreBindPlugin, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *framework.FoodScore) *framework.Status {
 	if !state.ShouldRecordPluginMetrics() {
 		return pl.PreBind(ctx, state, dguest, selectedFood)
 	}
@@ -1048,7 +1039,7 @@ func (f *frameworkImpl) runPreBindPlugin(ctx context.Context, pl framework.PreBi
 }
 
 // RunBindPlugins runs the set of configured bind plugins until one returns a non `Skip` status.
-func (f *frameworkImpl) RunBindPlugins(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) (status *framework.Status) {
+func (f *frameworkImpl) RunBindPlugins(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *framework.FoodScore) (status *framework.Status) {
 	startTime := time.Now()
 	defer func() {
 		metrics.FrameworkExtensionPointDuration.WithLabelValues(bind, status.Code().String(), f.profileName).Observe(metrics.SinceInSeconds(startTime))
@@ -1071,7 +1062,7 @@ func (f *frameworkImpl) RunBindPlugins(ctx context.Context, state *framework.Cyc
 	return status
 }
 
-func (f *frameworkImpl) runBindPlugin(ctx context.Context, bp framework.BindPlugin, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) *framework.Status {
+func (f *frameworkImpl) runBindPlugin(ctx context.Context, bp framework.BindPlugin, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *framework.FoodScore) *framework.Status {
 	if !state.ShouldRecordPluginMetrics() {
 		return bp.Bind(ctx, state, dguest, selectedFood)
 	}
@@ -1082,7 +1073,7 @@ func (f *frameworkImpl) runBindPlugin(ctx context.Context, bp framework.BindPlug
 }
 
 // RunPostBindPlugins runs the set of configured postbind plugins.
-func (f *frameworkImpl) RunPostBindPlugins(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) {
+func (f *frameworkImpl) RunPostBindPlugins(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *framework.FoodScore) {
 	startTime := time.Now()
 	defer func() {
 		metrics.FrameworkExtensionPointDuration.WithLabelValues(postBind, framework.Success.String(), f.profileName).Observe(metrics.SinceInSeconds(startTime))
@@ -1092,7 +1083,7 @@ func (f *frameworkImpl) RunPostBindPlugins(ctx context.Context, state *framework
 	}
 }
 
-func (f *frameworkImpl) runPostBindPlugin(ctx context.Context, pl framework.PostBindPlugin, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) {
+func (f *frameworkImpl) runPostBindPlugin(ctx context.Context, pl framework.PostBindPlugin, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *framework.FoodScore) {
 	if !state.ShouldRecordPluginMetrics() {
 		pl.PostBind(ctx, state, dguest, selectedFood)
 		return
@@ -1107,7 +1098,7 @@ func (f *frameworkImpl) runPostBindPlugin(ctx context.Context, pl framework.Post
 // continue running the remaining ones and returns the error. In such a case,
 // the dguest will not be scheduled and the caller will be expected to call
 // RunReservePluginsUnreserve.
-func (f *frameworkImpl) RunReservePluginsReserve(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) (status *framework.Status) {
+func (f *frameworkImpl) RunReservePluginsReserve(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *framework.FoodScore) (status *framework.Status) {
 	startTime := time.Now()
 	defer func() {
 		metrics.FrameworkExtensionPointDuration.WithLabelValues(reserve, status.Code().String(), f.profileName).Observe(metrics.SinceInSeconds(startTime))
@@ -1123,7 +1114,7 @@ func (f *frameworkImpl) RunReservePluginsReserve(ctx context.Context, state *fra
 	return nil
 }
 
-func (f *frameworkImpl) runReservePluginReserve(ctx context.Context, pl framework.ReservePlugin, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) *framework.Status {
+func (f *frameworkImpl) runReservePluginReserve(ctx context.Context, pl framework.ReservePlugin, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *framework.FoodScore) *framework.Status {
 	if !state.ShouldRecordPluginMetrics() {
 		return pl.Reserve(ctx, state, dguest, selectedFood)
 	}
@@ -1135,7 +1126,7 @@ func (f *frameworkImpl) runReservePluginReserve(ctx context.Context, pl framewor
 
 // RunReservePluginsUnreserve runs the Unreserve method in the set of
 // configured reserve plugins.
-func (f *frameworkImpl) RunReservePluginsUnreserve(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) {
+func (f *frameworkImpl) RunReservePluginsUnreserve(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *framework.FoodScore) {
 	startTime := time.Now()
 	defer func() {
 		metrics.FrameworkExtensionPointDuration.WithLabelValues(unreserve, framework.Success.String(), f.profileName).Observe(metrics.SinceInSeconds(startTime))
@@ -1147,7 +1138,7 @@ func (f *frameworkImpl) RunReservePluginsUnreserve(ctx context.Context, state *f
 	}
 }
 
-func (f *frameworkImpl) runReservePluginUnreserve(ctx context.Context, pl framework.ReservePlugin, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) {
+func (f *frameworkImpl) runReservePluginUnreserve(ctx context.Context, pl framework.ReservePlugin, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *framework.FoodScore) {
 	if !state.ShouldRecordPluginMetrics() {
 		pl.Unreserve(ctx, state, dguest, selectedFood)
 		return
@@ -1163,7 +1154,7 @@ func (f *frameworkImpl) runReservePluginUnreserve(ctx context.Context, pl framew
 // plugins returns "Wait", then this function will create and add waiting dguest
 // to a map of currently waiting dguests and return status with "Wait" code.
 // Dguest will remain waiting dguest for the minimum duration returned by the permit plugins.
-func (f *frameworkImpl) RunPermitPlugins(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) (status *framework.Status) {
+func (f *frameworkImpl) RunPermitPlugins(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *framework.FoodScore) (status *framework.Status) {
 	startTime := time.Now()
 	defer func() {
 		metrics.FrameworkExtensionPointDuration.WithLabelValues(permit, status.Code().String(), f.profileName).Observe(metrics.SinceInSeconds(startTime))
@@ -1202,7 +1193,7 @@ func (f *frameworkImpl) RunPermitPlugins(ctx context.Context, state *framework.C
 	return nil
 }
 
-func (f *frameworkImpl) runPermitPlugin(ctx context.Context, pl framework.PermitPlugin, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) (*framework.Status, time.Duration) {
+func (f *frameworkImpl) runPermitPlugin(ctx context.Context, pl framework.PermitPlugin, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *framework.FoodScore) (*framework.Status, time.Duration) {
 	if !state.ShouldRecordPluginMetrics() {
 		return pl.Permit(ctx, state, dguest, selectedFood)
 	}

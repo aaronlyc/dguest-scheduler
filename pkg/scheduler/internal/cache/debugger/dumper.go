@@ -56,7 +56,7 @@ func (d *CacheDumper) printFoodInfo(name string, n *framework.FoodInfo) string {
 		foodData.WriteString(printDguest(p.Dguest))
 	}
 	// Dumping nominated dguests info on the food
-	nominatedDguestInfos := d.dguestQueue.NominatedDguestsForFood(&v1alpha1.FoodInfoBase{Name: name})
+	nominatedDguestInfos := d.dguestQueue.NominatedDguestsForFood(&framework.FoodScore{Name: name})
 	if len(nominatedDguestInfos) != 0 {
 		foodData.WriteString(fmt.Sprintf("Nominated Dguests(number: %v):\n", len(nominatedDguestInfos)))
 		for _, pi := range nominatedDguestInfos {
@@ -68,5 +68,5 @@ func (d *CacheDumper) printFoodInfo(name string, n *framework.FoodInfo) string {
 
 // printDguest writes parts of a Dguest object to a string.
 func printDguest(p *v1alpha1.Dguest) string {
-	return fmt.Sprintf("name: %v, namespace: %v, uid: %v, phase: %v, nominated food: %v\n", p.Name, p.Namespace, p.UID, p.Status.Phase, p.Status.FoodsInfo)
+	return fmt.Sprintf("name: %v, namespace: %v, uid: %v, phase: %v, nominated food: %v\n", p.Name, p.Namespace, p.UID, p.Status.Phase, p.Spec.FoodNamespacedName)
 }

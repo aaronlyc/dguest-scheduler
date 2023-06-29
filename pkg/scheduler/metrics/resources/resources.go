@@ -4,10 +4,10 @@
 package resources
 
 import (
-	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
 	listersv1alpha1 "dguest-scheduler/pkg/generated/listers/scheduler/v1alpha1"
-	"k8s.io/component-base/metrics"
 	"net/http"
+
+	"k8s.io/component-base/metrics"
 )
 
 type resourceLifecycleDescriptors struct {
@@ -160,19 +160,19 @@ func (c *dguestResourceCollector) CollectWithStability(ch chan<- metrics.Metric)
 // a requests and limits list to the function, which will be cleared before use.
 // This method is the same as v1resource.DguestRequestsAndLimits but avoids allocating in several
 // scenarios for efficiency.
-func dguestRequestsAndLimitsByLifecycle(dguest *v1alpha1.Dguest, reuseReqs, reuseLimits v1alpha1.ResourceList) (reqs, limits v1alpha1.ResourceList, terminal bool) {
-	switch {
-	case len(dguest.Status.FoodsInfo) == 0:
-		// unscheduled dguests cannot be terminal
-	case dguest.Status.Phase == v1alpha1.DguestSucceeded, dguest.Status.Phase == v1alpha1.DguestFailed:
-		terminal = true
-		// TODO: resolve https://github.com/kubernetes/kubernetes/issues/96515 and add a condition here
-		// for checking that terminal state
-	}
-	if terminal {
-		return
-	}
+// func dguestRequestsAndLimitsByLifecycle(dguest *v1alpha1.Dguest, reuseReqs, reuseLimits v1alpha1.ResourceList) (reqs, limits v1alpha1.ResourceList, terminal bool) {
+// 	switch {
+// 	case len(dguest.Status.FoodsInfo) == 0:
+// 		// unscheduled dguests cannot be terminal
+// 	case dguest.Status.Phase == v1alpha1.DguestSucceeded, dguest.Status.Phase == v1alpha1.DguestFailed:
+// 		terminal = true
+// 		// TODO: resolve https://github.com/kubernetes/kubernetes/issues/96515 and add a condition here
+// 		// for checking that terminal state
+// 	}
+// 	if terminal {
+// 		return
+// 	}
 
-	//reqs, limits = v1resource.DguestRequestsAndLimitsReuse(dguest, reuseReqs, reuseLimits)
-	return
-}
+// 	//reqs, limits = v1resource.DguestRequestsAndLimitsReuse(dguest, reuseReqs, reuseLimits)
+// 	return
+// }

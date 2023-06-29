@@ -33,6 +33,7 @@ import (
 	"dguest-scheduler/pkg/scheduler/framework/preemption"
 	"dguest-scheduler/pkg/scheduler/metrics"
 	"dguest-scheduler/pkg/scheduler/util"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
 )
@@ -233,27 +234,27 @@ func (pl *DefaultPreemption) DguestEligibleToPreemptOthers(dguest *v1alpha1.Dgue
 	//	return false, fmt.Sprint("not eligible due to preemptionPolicy=Never.")
 	//}
 	//foodInfos := pl.fh.SnapshotSharedLister().FoodInfos()
-	nomFoodName := dguest.Status.FoodsInfo
-	if len(nomFoodName) > 0 {
-		// If the dguest's nominated food is considered as UnschedulableAndUnresolvable by the filters,
-		// then the dguest should be considered for preempting again.
-		if nominatedFoodStatus.Code() == framework.UnschedulableAndUnresolvable {
-			return true, ""
-		}
+	// nomFoodName := dguest.Status.FoodsInfo
+	// if len(nomFoodName) > 0 {
+	// 	// If the dguest's nominated food is considered as UnschedulableAndUnresolvable by the filters,
+	// 	// then the dguest should be considered for preempting again.
+	// 	if nominatedFoodStatus.Code() == framework.UnschedulableAndUnresolvable {
+	// 		return true, ""
+	// 	}
 
-		//for _, info := range nomFoodName {
-		//if foodInfo, _ := foodInfos.Get(info.Name); foodInfo != nil {
-		//	dguestPriority := corev1helpers.DguestPriority(dguest)
-		//	for _, p := range foodInfo.Dguests {
-		//		if p.Dguest.DeletionTimestamp != nil && corev1helpers.DguestPriority(p.Dguest) < dguestPriority {
-		//			// There is a terminating dguest on the nominated food.
-		//			return false, fmt.Sprint("not eligible due to a terminating dguest on the nominated food.")
-		//		}
-		//	}
-		//}
-		//}
+	// 	//for _, info := range nomFoodName {
+	// 	//if foodInfo, _ := foodInfos.Get(info.Name); foodInfo != nil {
+	// 	//	dguestPriority := corev1helpers.DguestPriority(dguest)
+	// 	//	for _, p := range foodInfo.Dguests {
+	// 	//		if p.Dguest.DeletionTimestamp != nil && corev1helpers.DguestPriority(p.Dguest) < dguestPriority {
+	// 	//			// There is a terminating dguest on the nominated food.
+	// 	//			return false, fmt.Sprint("not eligible due to a terminating dguest on the nominated food.")
+	// 	//		}
+	// 	//	}
+	// 	//}
+	// 	//}
 
-	}
+	// }
 	return true, ""
 }
 

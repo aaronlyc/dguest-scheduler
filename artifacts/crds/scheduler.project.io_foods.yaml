@@ -139,6 +139,8 @@ spec:
                   version:
                     type: string
                 type: object
+              phase:
+                type: string
             type: object
         required:
         - spec

@@ -18,8 +18,7 @@ package app
 
 import (
 	"context"
-	"dguest-scheduler/pkg/apis/scheduler/v1alpha1"
-	"dguest-scheduler/pkg/scheduler/apis/config/v1"
+	v1 "dguest-scheduler/pkg/scheduler/apis/config/v1"
 	"fmt"
 	"net"
 	"net/http"
@@ -32,6 +31,7 @@ import (
 	"dguest-scheduler/cmd/scheduler/app/options"
 	"dguest-scheduler/pkg/scheduler/apis/config/testing/defaults"
 	"dguest-scheduler/pkg/scheduler/framework"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

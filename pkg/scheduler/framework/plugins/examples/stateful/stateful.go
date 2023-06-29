@@ -34,7 +34,7 @@ func (mp *MultipointExample) Name() string {
 // Reserve is the function invoked by the framework at "reserve" extension
 // point. In this trivial example, the Reserve method allocates an array of
 // strings.
-func (mp *MultipointExample) Reserve(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) *framework.Status {
+func (mp *MultipointExample) Reserve(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *framework.FoodScore) *framework.Status {
 	// Reserve is not called concurrently, and so we don't need to lock.
 	mp.executionPoints = append(mp.executionPoints, "reserve")
 	return nil
@@ -44,7 +44,7 @@ func (mp *MultipointExample) Reserve(ctx context.Context, state *framework.Cycle
 // during "reserve" extension point or later. In this example, the Unreserve
 // method loses its reference to the string slice, allowing it to be garbage
 // collected, and thereby "unallocating" the reserved resources.
-func (mp *MultipointExample) Unreserve(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) {
+func (mp *MultipointExample) Unreserve(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *framework.FoodScore) {
 	// Unlike Reserve, the Unreserve method may be called concurrently since
 	// there is no guarantee that there will only one unreserve operation at any
 	// given point in time (for example, during the binding cycle).
@@ -55,7 +55,7 @@ func (mp *MultipointExample) Unreserve(ctx context.Context, state *framework.Cyc
 
 // PreBind is the function invoked by the framework at "prebind" extension
 // point.
-func (mp *MultipointExample) PreBind(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) *framework.Status {
+func (mp *MultipointExample) PreBind(ctx context.Context, state *framework.CycleState, dguest *v1alpha1.Dguest, selectedFood *framework.FoodScore) *framework.Status {
 	// PreBind could be called concurrently for different dguests.
 	mp.mu.Lock()
 	defer mp.mu.Unlock()

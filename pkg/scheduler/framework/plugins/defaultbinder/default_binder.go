@@ -50,7 +50,7 @@ func (b DefaultBinder) Name() string {
 }
 
 // Bind binds dguests to foods using the k8s client.
-func (b DefaultBinder) Bind(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *v1alpha1.FoodInfoBase) *framework.Status {
+func (b DefaultBinder) Bind(ctx context.Context, state *framework.CycleState, p *v1alpha1.Dguest, selectedFood *framework.FoodScore) *framework.Status {
 	klog.V(3).InfoS("Attempting to bind dguest to food", "dguest", klog.KObj(p), "food", klog.KRef("", selectedFood.Name))
 	//binding := &v1.Binding{
 	//	ObjectMeta: metav1.ObjectMeta{Namespace: p.Namespace, Name: p.Name, UID: p.UID},
